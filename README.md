@@ -77,9 +77,21 @@ solo devuelven `tiene_foto` para no leer el blob en cada consulta.
 
 ## Ramas e iteraciones
 
-`main` incluye la iteración 1 (usuarios) y esta rama (`iteracion-2-recursos-estaciones`) sale de
-ahí, así que integrarla en `main` es un *fast-forward* sin conflictos. En cambio, las ramas
-`iteracion-3-brigadas`, `iteracion-4-zonas-riesgo`, `iteracion-5-incidentes`,
-`iteracion-6-alertas-notificaciones` e `iteracion-7-estadisticas-informes` quedaron en el commit
-base anterior: no incluyen la iteración 1 ni este trabajo. Para continuar, crea cada nueva rama
-desde `main` actualizado; integrar esas ramas viejas tal cual generará conflictos.
+`main` ya incluye la iteración 1 (usuarios, vía PR #1) y la iteración 2
+(`iteracion-2-recursos-estaciones`, integrada como *fast-forward* desde `e567a18`). La rama cruda
+`iteracion-1-usuarios` no se vuelve a fusionar: su contenido ya está en `main`.
+
+Las ramas `iteracion-3-brigadas`, `iteracion-4-zonas-riesgo`, `iteracion-5-incidentes`,
+`iteracion-6-alertas-notificaciones` e `iteracion-7-estadisticas-informes` siguen en el commit base
+`f8026c0`, anterior a esos cambios. Cada persona dueña de una iteración debe actualizar su rama
+antes de trabajar:
+
+```bash
+git fetch origin
+git switch iteracion-X
+git merge origin/main
+git push origin iteracion-X
+```
+
+Justo antes de abrir el PR a `main`, repetir `git fetch origin` y `git merge origin/main` para
+recoger lo que hayan hecho los demás. No usar `git push -f`.
