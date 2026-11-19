@@ -81,6 +81,37 @@ export async function refrescarAccessToken() {
   return refrescoEnCurso;
 }
 
+/** Descarga binarios (imágenes) con el mismo manejo de token que `api`. */
+export async function apiBlob(path, { auth = true, reintentar = true } = {}) {
+  const headers = {};
+  if (auth) {
+    const token = localStorage.getItem("access_token");
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API}${path}`, { headers });
+  } catch {
+    const error = new Error("No hay conexión con el servidor");
+    error.status = 0;
+    throw error;
+  }
+
+  if (response.status === 401 && auth && reintentar) {
+    const renovado = await refrescarAccessToken();
+    if (renovado) return apiBlob(path, { auth, reintentar: false });
+    limpiarSesion();
+  }
+
+  if (!response.ok) {
+    const error = new Error("No se pudo cargar la imagen");
+    error.status = response.status;
+    throw error;
+  }
+  return response.blob();
+}
+
 export async function api(path, { method = "GET", body, auth = true, reintentar = true } = {}) {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";

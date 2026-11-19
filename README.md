@@ -3,7 +3,7 @@
 Proyecto académico para la gestión de incendios forestales. Backend **Flask + PostgreSQL**,
 frontend **React**, arquitectura **MVC** y desarrollo por iteraciones.
 
-> **Estado actual:** el sprint de usuarios está implementado (acceso, registro de ciudadano, sesión y administración de cuentas). Los demás módulos tienen sus tablas en la base y todavía no tienen pantallas. La guía corta para continuar está en `GUIA_GRUPOS.md`.
+> **Estado actual:** los módulos activos son **Usuarios** (acceso, registro de ciudadano, sesión y administración de cuentas) y **Recursos y Estaciones** (alta y consulta de estaciones, unidades y recursos). El resto de la interfaz se retiró de esta iteración; la guía corta para continuar está en `GUIA_GRUPOS.md`.
 
 ## Estructura
 
@@ -49,8 +49,28 @@ sistema_incendios/
 
 1. Gestión de usuarios
 2. Gestión de recursos y estaciones
-3. Gestión de brigadas
-4. Gestión de zonas de riesgo
-5. Gestión de incidentes
-6. Gestión de alertas y notificaciones
-7. Gestión de estadísticas e informes
+
+## Instalación
+
+No hay dependencias nuevas para esta iteración: la compresión de fotos usa el `canvas` del
+navegador y el endpoint de imágenes usa lo que ya traen Flask y SQLAlchemy.
+
+```bash
+# Backend
+cd backend
+python -m venv venv
+.\venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+cp .env.example .env           # completar DATABASE_URL y SECRET_KEY
+python -m flask run --host 127.0.0.1 --port 5000
+
+# Frontend (en otra terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+La columna `foto_url` de `estaciones` ya existe en Neon; el cambio aditivo está versionado en
+`backend/migrations/002_agregar_foto_estaciones.sql`. Las fotos se guardan como data URL WebP en
+la base de datos y se sirven por `GET /api/estaciones/<id>/foto` con autenticación. Los listados
+solo devuelven `tiene_foto` para no leer el blob en cada consulta.

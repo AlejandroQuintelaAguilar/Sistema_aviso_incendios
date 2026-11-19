@@ -18,7 +18,7 @@ export default function LoginPage() {
     setEnviando(true);
     try {
       await entrar({ nombre_usuario: nombreUsuario, contrasena });
-      navigate("/cuenta", { replace: true });
+      navigate("/recursos", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

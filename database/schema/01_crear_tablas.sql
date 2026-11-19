@@ -10,11 +10,8 @@ DROP TABLE IF EXISTS alertas CASCADE;
 DROP TABLE IF EXISTS tipos_alerta CASCADE;
 DROP TABLE IF EXISTS evaluaciones_danos CASCADE;
 DROP TABLE IF EXISTS informes_bombero CASCADE;
-DROP TABLE IF EXISTS incidente_brigadas CASCADE;
 DROP TABLE IF EXISTS incidentes CASCADE;
 DROP TABLE IF EXISTS avisos_incendio CASCADE;
-DROP TABLE IF EXISTS brigada_miembros CASCADE;
-DROP TABLE IF EXISTS brigadas CASCADE;
 DROP TABLE IF EXISTS recursos CASCADE;
 DROP TABLE IF EXISTS unidades CASCADE;
 DROP TABLE IF EXISTS estaciones CASCADE;
@@ -79,6 +76,7 @@ CREATE TABLE estaciones (
     nombre VARCHAR(100) NOT NULL,
     direccion VARCHAR(255) NOT NULL,
     telefono VARCHAR(20),
+    foto_url TEXT,
     id_administrador INT REFERENCES personas(id_persona) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -115,31 +113,7 @@ CREATE TABLE recursos (
 );
 
 -- -----------------------------------------------------------------------------
--- 3. MÓDULO DE BRIGADAS Y BOMBEROS (Iteración 3)
--- -----------------------------------------------------------------------------
-
-CREATE TABLE brigadas (
-    id_brigada SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    estado VARCHAR(30) NOT NULL DEFAULT 'ACTIVA' CHECK (estado IN ('ACTIVA', 'EN_OPERACION', 'DESCANSO', 'DISUELTA')),
-    motivo_estado TEXT,
-    id_estacion INT NOT NULL REFERENCES estaciones(id_estacion) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE brigada_miembros (
-    id_brigada_miembro SERIAL PRIMARY KEY,
-    id_brigada INT NOT NULL REFERENCES brigadas(id_brigada) ON DELETE CASCADE,
-    id_persona INT NOT NULL REFERENCES personas(id_persona) ON DELETE RESTRICT,
-    rol_en_brigada VARCHAR(50) DEFAULT 'BOMBERO' CHECK (rol_en_brigada IN ('JEFE_CUADRILLA', 'BOMBERO', 'ESPECIALISTA', 'PARAMEDICO')),
-    fecha_incorporacion DATE DEFAULT CURRENT_DATE,
-    estado VARCHAR(20) DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
-    UNIQUE (id_brigada, id_persona)
-);
-
--- -----------------------------------------------------------------------------
--- 4. MÓDULO DE AVISOS E INCIDENTES (Iteraciones 4 y 5)
+-- 3. MÓDULO DE AVISOS E INCIDENTES (Iteraciones 4 y 5)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE avisos_incendio (
@@ -168,14 +142,6 @@ CREATE TABLE incidentes (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE incidente_brigadas (
-    id_incidente INT NOT NULL REFERENCES incidentes(id_incidente) ON DELETE CASCADE,
-    id_brigada INT NOT NULL REFERENCES brigadas(id_brigada) ON DELETE RESTRICT,
-    fecha_asignacion TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    estado_asignacion VARCHAR(30) DEFAULT 'ASIGNADA' CHECK (estado_asignacion IN ('ASIGNADA', 'EN_CAMINO', 'EN_SITIO', 'LIBERADA')),
-    PRIMARY KEY (id_incidente, id_brigada, fecha_asignacion)
-);
-
 CREATE TABLE informes_bombero (
     id_informe SERIAL PRIMARY KEY,
     id_incidente INT NOT NULL REFERENCES incidentes(id_incidente) ON DELETE CASCADE,
@@ -198,7 +164,7 @@ CREATE TABLE evaluaciones_danos (
 );
 
 -- -----------------------------------------------------------------------------
--- 5. MÓDULO DE ALERTAS Y NOTIFICACIONES (Iteración 6)
+-- 4. MÓDULO DE ALERTAS Y NOTIFICACIONES (Iteración 6)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE tipos_alerta (
@@ -226,7 +192,7 @@ CREATE TABLE alerta_destinatarios (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. MÓDULO DE REPORTES ADMINISTRATIVOS (Iteración 7)
+-- 5. MÓDULO DE REPORTES ADMINISTRATIVOS (Iteración 7)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE reportes (
@@ -247,7 +213,6 @@ CREATE INDEX idx_usuarios_rol ON usuarios(id_rol);
 CREATE INDEX idx_recursos_estacion ON recursos(id_estacion);
 CREATE INDEX idx_recursos_tipo ON recursos(tipo_recurso);
 CREATE INDEX idx_unidades_estacion ON unidades(id_estacion);
-CREATE INDEX idx_brigadas_estacion ON brigadas(id_estacion);
 CREATE INDEX idx_incidentes_estado ON incidentes(estado);
 CREATE INDEX idx_incidentes_zona ON incidentes(id_zona);
 CREATE INDEX idx_avisos_estado ON avisos_incendio(estado_aviso);

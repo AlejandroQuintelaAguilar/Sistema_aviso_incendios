@@ -58,32 +58,17 @@ INSERT INTO recursos (nombre, tipo_recurso, cantidad, estado, motivo_estado, id_
 ('Pulaski (Hacha-Azadón)', 'herramienta', 20, 'DISPONIBLE', 'Inspeccionadas', 2, 1),
 ('Botiquín de Trauma Forestal', 'insumo', 15, 'DISPONIBLE', 'Completos con vendas y apósitos de quemaduras', 1, 1);
 
--- 8. Brigadas
-INSERT INTO brigadas (nombre, estado, motivo_estado, id_estacion) VALUES
-('Brigada Puma - Cuadrilla Forestal 1', 'ACTIVA', 'Personal completo y preparado', 1),
-('Brigada Cóndor - Ataque Rápido', 'ACTIVA', 'Guardia diurna', 2);
-
--- 9. Miembros de Brigada
-INSERT INTO brigada_miembros (id_brigada, id_persona, rol_en_brigada, estado) VALUES
-(1, 3, 'JEFE_CUADRILLA', 'ACTIVO'),
-(1, 4, 'BOMBERO', 'ACTIVO')
-ON CONFLICT (id_brigada, id_persona) DO NOTHING;
-
--- 10. Tipos de Alerta
+-- 8. Tipos de Alerta
 INSERT INTO tipos_alerta (nombre, plantilla_mensaje) VALUES
 ('ALERTA ROJA - EVACUACIÓN', 'URGENTE: Incendio descontrolado avanzando hacia {zona}. Evacúe inmediatamente hacia {refugio}.'),
 ('ALERTA AMARILLA - PREVENCIÓN', 'PRECAUCIÓN: Foco de calor detectado en {zona}. Evite realizar chaqueos o encender fogatas.'),
 ('ALERTA VERDE - CONTROLADO', 'AVISO: El incendio en {zona} ha sido contenido y liquidado por las cuadrillas de bomberos.')
 ON CONFLICT (nombre) DO NOTHING;
 
--- 11. Avisos de Incendio
+-- 9. Avisos de Incendio
 INSERT INTO avisos_incendio (id_ciudadano, ubicacion, descripcion, nivel_urgencia, estado_aviso) VALUES
 (5, 'Cerro San Pedro, cara este', 'Humo blanco y luego negro saliendo de los matorrales', 'ALTO', 'VERIFICADO');
 
--- 12. Incidentes
+-- 10. Incidentes
 INSERT INTO incidentes (id_aviso, id_operador, id_zona, ubicacion, gravedad, estado) VALUES
 (1, 2, 1, 'Sector Tunari Km 5', 'ALTA', 'ACTIVO');
-
--- 13. Asignación de Brigada a Incidente
-INSERT INTO incidente_brigadas (id_incidente, id_brigada, estado_asignacion) VALUES
-(1, 1, 'EN_SITIO');

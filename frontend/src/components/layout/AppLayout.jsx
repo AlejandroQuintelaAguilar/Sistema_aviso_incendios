@@ -1,42 +1,39 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useVigia } from "../../context/VigiaContext";
+import VigiaSidebar from "./VigiaSidebar";
+import VigiaHeader from "./VigiaHeader";
+import ModalEstacion from "../vigia/ModalEstacion";
 
 export default function AppLayout({ children, ancha = false, suelta = false }) {
   const { usuario, cerrarSesion } = useAuth();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { colapsado } = useVigia();
 
   function salir() {
     cerrarSesion();
     navigate("/login", { replace: true });
   }
 
-  function enlace(ruta, texto) {
-    if (pathname === ruta) return <span aria-current="page">{texto}</span>;
-    return <Link to={ruta}>{texto}</Link>;
-  }
-
   return (
-    <main className={`cuenta${ancha ? " cuenta-ancha" : ""}`}>
-      <header className="cuenta-barra">
-        <Link to="/" className="cuenta-marca">Sistema de incendios</Link>
-        {usuario && (
-          <nav className="cuenta-nav">
-            {enlace("/cuenta", "Mi cuenta")}
-            {usuario.rol === "ADMINISTRADOR" && enlace("/usuarios", "Usuarios")}
-            <button type="button" className="boton boton-oscuro" onClick={salir}>
-              Salir
-            </button>
-          </nav>
-        )}
-      </header>
-      {suelta ? (
-        <div className="cuenta-pila">{children}</div>
-      ) : (
-        <section className={`cuenta-tarjeta${ancha ? " cuenta-tarjeta-ancha" : ""}`}>
-          {children}
-        </section>
-      )}
-    </main>
+    <div className="vigia-app">
+      <VigiaSidebar usuario={usuario} pathname={pathname} onSalir={salir} />
+
+      <div className={`vg-marco${colapsado ? " vg-marco-colapsado" : ""}`}>
+        <VigiaHeader pathname={pathname} usuario={usuario} />
+        <main className="vg-contenido">
+          {suelta ? (
+            <div className="cuenta-pila">{children}</div>
+          ) : (
+            <section className={`cuenta-tarjeta${ancha ? " cuenta-tarjeta-ancha" : ""}`}>
+              {children}
+            </section>
+          )}
+        </main>
+      </div>
+
+      <ModalEstacion />
+    </div>
   );
 }

@@ -28,10 +28,14 @@ def create_app():
     )
 
     from app.routes.auth_routes import auth_bp
+    from app.routes.estaciones_routes import estaciones_bp
+    from app.routes.recursos_routes import recursos_bp
     from app.routes.usuarios_routes import usuarios_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(usuarios_bp, url_prefix="/api/usuarios")
+    app.register_blueprint(estaciones_bp, url_prefix="/api/estaciones")
+    app.register_blueprint(recursos_bp, url_prefix="/api/recursos")
 
     @app.get("/api/salud")
     def salud():
