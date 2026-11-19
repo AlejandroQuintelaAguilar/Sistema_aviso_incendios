@@ -70,6 +70,19 @@ npm install
 npm run dev
 ```
 
+## Credenciales de prueba
+
+La aplicación queda disponible en `http://127.0.0.1:5173`. Usa estas cuentas de demostración:
+
+| Rol | Usuario | Contraseña | Acceso |
+| --- | --- | --- | --- |
+| Administrador | `admin` | `admin123` | Usuarios + Recursos y Estaciones (incluye altas) |
+| Operador | `operador1` | `operador123` | Solo Recursos y Estaciones |
+| Bombero | `bombero_jorge` | `bombero123` | Solo Recursos y Estaciones, sin botón de nueva estación |
+| Ciudadano | `ciudadano_ana` | `ciudadano123` | Acceso de ciudadano |
+
+> Son cuentas de prueba del entorno académico; no las reutilices en producción.
+
 La columna `foto_url` de `estaciones` ya existe en Neon; el cambio aditivo está versionado en
 `backend/migrations/002_agregar_foto_estaciones.sql`. Las fotos se guardan como data URL WebP en
 la base de datos y se sirven por `GET /api/estaciones/<id>/foto` con autenticación. Los listados
