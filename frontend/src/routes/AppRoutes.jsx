@@ -11,6 +11,11 @@ import FrmRegEstacion from "../pages/recursos/frmRegEstacion";
 import FrmRegUnidadRecurso from "../pages/recursos/frmRegUnidadRecurso";
 import ConsultaRecursosPage from "../pages/recursos/ConsultaRecursosPage";
 import RecursosEstacionesPage from "../pages/recursos/RecursosEstacionesPage";
+import BrigadasPage from "../pages/brigadas/BrigadasPage";
+import FrmRegBrigada from "../pages/brigadas/frmRegBrigada";
+import FrmEditarBrigada from "../pages/brigadas/frmEditarBrigada";
+import ConsultaBrigadasPage from "../pages/brigadas/ConsultaBrigadasPage";
+import IncendiosAsignadosPage from "../pages/brigadas/IncendiosAsignadosPage";
 
 function PantallaCarga() {
   return <p className="cuenta estado-pantalla">Comprobando sesión…</p>;
@@ -50,7 +55,7 @@ export default function AppRoutes() {
       </Route>
       <Route path="/cuenta" element={<RutaPrivada><CuentaPage /></RutaPrivada>} />
 
-      {/* Únicos módulos activos: Recursos y Estaciones, y Usuarios. */}
+      {/* Módulos activos: Recursos y Estaciones, Brigadas y Usuarios. */}
       <Route
         path="/recursos"
         element={<RutaPrivada roles={ROLES_OPERATIVOS}><RecursosEstacionesPage /></RutaPrivada>}
@@ -58,6 +63,14 @@ export default function AppRoutes() {
       <Route path="/recursos/estaciones/nueva" element={<RutaPrivada soloAdmin><FrmRegEstacion /></RutaPrivada>} />
       <Route path="/recursos/unidades/nueva" element={<RutaPrivada soloAdmin><FrmRegUnidadRecurso /></RutaPrivada>} />
       <Route path="/recursos/consultar" element={<RutaPrivada roles={ROLES_OPERATIVOS}><ConsultaRecursosPage /></RutaPrivada>} />
+
+      {/* Iteración 3: Gestión de Brigadas. */}
+      <Route path="/brigadas" element={<RutaPrivada roles={ROLES_OPERATIVOS}><BrigadasPage /></RutaPrivada>} />
+      <Route path="/brigadas/nueva" element={<RutaPrivada soloAdmin><FrmRegBrigada /></RutaPrivada>} />
+      <Route path="/brigadas/:idBrigada/editar" element={<RutaPrivada soloAdmin><FrmEditarBrigada /></RutaPrivada>} />
+      <Route path="/brigadas/consultar" element={<RutaPrivada roles={ROLES_OPERATIVOS}><ConsultaBrigadasPage /></RutaPrivada>} />
+      <Route path="/brigadas/incendios" element={<RutaPrivada roles={ROLES_OPERATIVOS}><IncendiosAsignadosPage /></RutaPrivada>} />
+
       <Route path="/usuarios" element={<RutaPrivada soloAdmin><UsuariosPage /></RutaPrivada>} />
 
       <Route path="*" element={<Navigate to="/recursos" replace />} />

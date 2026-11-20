@@ -1683,3 +1683,88 @@ p.cuenta.estado-pantalla {
   .me-foto-etiqueta { left: 18px; }
 }
 
+/* ==========================================================================
+   Iteración 3: Gestión de Brigadas.
+   Reutiliza el lenguaje visual de Recursos y Estaciones (prefijo re-) y define
+   solo los componentes nuevos del módulo con el prefijo bg-.
+   ========================================================================== */
+a.vg-boton-principal,
+a.vg-boton-secundario { text-decoration: none; }
+
+.bg-barra { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.bg-buscar { flex: 1; min-width: 260px; max-width: 460px; }
+.bg-barra-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bg-no-disponible { background: #f3ebef; color: var(--vg-terracota); }
+.bg-motivo { font-style: italic; color: var(--vg-texto-suave); }
+.bg-acciones { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 18px; }
+
+/* Modal de gestión de integrantes. */
+.bg-modal { width: min(700px, 100%); }
+.bg-modal .vg-modal-cerrar { left: auto; right: 16px; }
+.bg-modal-cabecera {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 24px 66px 18px 26px;
+  border-bottom: 1px solid var(--vg-borde);
+}
+.bg-modal-icono {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: var(--vg-fuego); color: var(--vg-ciruela-oscuro);
+}
+.bg-modal-cabecera h2 { margin: 2px 0 4px; font-size: 1.12rem; color: var(--vg-texto); }
+.bg-modal-cabecera p { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem; color: var(--vg-texto-suave); }
+.bg-modal-cuerpo { display: flex; flex-direction: column; gap: 20px; padding: 22px 26px 28px; }
+.bg-seccion h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 0.9rem; color: var(--vg-ciruela); }
+.bg-listado { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.bg-fila {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px;
+  border: 1px solid var(--vg-borde); border-radius: 13px;
+  background: var(--vg-fondo);
+}
+.bg-fila-inactivo { opacity: 0.6; }
+.bg-fila-icono { display: grid; place-items: center; color: var(--vg-fuego); }
+.bg-forma { display: flex; flex-direction: column; gap: 12px; }
+.bg-forma select[multiple] {
+  min-height: 96px; border-radius: 14px; padding: 8px 12px;
+}
+.bg-forma select[multiple] option { padding: 5px 4px; border-radius: 8px; }
+
+/* Consulta detallada. */
+.bg-filtro-estado { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--vg-texto-suave); }
+.bg-filtro-estado select {
+  height: 38px; padding: 0 14px;
+  border: 1px solid var(--vg-borde); border-radius: 999px;
+  background: var(--vg-superficie); color: var(--vg-texto); font: inherit; font-size: 0.78rem;
+}
+.bg-tabla-acciones { display: flex; gap: 6px; }
+.bg-pie-consulta { display: flex; align-items: center; gap: 6px; }
+
+/* Incendios asignados. */
+.bg-asignaciones { display: flex; flex-direction: column; gap: 14px; }
+.bg-asignacion {
+  padding: 18px 20px;
+  border: 1px solid var(--vg-borde); border-radius: 18px;
+  background: var(--vg-superficie);
+}
+.bg-asignacion-cabecera { display: flex; align-items: center; gap: 13px; }
+.bg-asignacion-cabecera h2 { margin: 0; font-size: 1rem; color: var(--vg-texto); }
+.bg-asignacion-cabecera p { display: flex; align-items: center; gap: 5px; margin: 4px 0 0; font-size: 0.74rem; color: var(--vg-texto-suave); }
+.bg-asignacion-cabecera .re-estado { margin-left: auto; }
+.bg-asignacion-datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+.bg-asignacion-datos div { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 12px; background: var(--vg-fondo); }
+.bg-asignacion-datos small { font-size: 0.64rem; color: var(--vg-texto-suave); }
+.bg-asignacion-datos strong { font-size: 0.78rem; color: var(--vg-texto); }
+.bg-estado-asignada { background: var(--vg-brasa); color: var(--vg-ciruela-oscuro); }
+.bg-estado-en-camino { background: #fff0de; color: var(--vg-critico); }
+.bg-estado-en-sitio { background: #fbeceb; color: var(--vg-terracota); }
+.bg-estado-liberada { background: var(--vg-input); color: var(--vg-texto-suave); }
+
+@media (max-width: 700px) {
+  .bg-barra-acciones { width: 100%; }
+  .bg-asignacion-cabecera { flex-wrap: wrap; }
+  .bg-asignacion-cabecera .re-estado { margin-left: 0; }
+  .bg-asignacion-datos { grid-template-columns: 1fr; }
+}
+

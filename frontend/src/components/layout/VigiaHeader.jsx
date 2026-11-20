@@ -7,6 +7,10 @@ const TITULOS = [
   ["/recursos/unidades/nueva", "Nueva Unidad o Recurso"],
   ["/recursos/consultar", "Consulta detallada"],
   ["/recursos", "Recursos y Estaciones"],
+  ["/brigadas/nueva", "Nueva Brigada"],
+  ["/brigadas/consultar", "Consulta de Brigadas"],
+  ["/brigadas/incendios", "Incendios Asignados"],
+  ["/brigadas", "Gestión de Brigadas"],
   ["/usuarios", "Usuarios"],
   ["/cuenta", "Mi cuenta"],
 ];
@@ -23,6 +27,7 @@ export default function VigiaHeader({ pathname, usuario }) {
   const navigate = useNavigate();
   const esAdmin = usuario?.rol === "ADMINISTRADOR";
   const enRecursos = pathname.startsWith("/recursos");
+  const enBrigadas = pathname.startsWith("/brigadas");
 
   return (
     <header className="vg-header">
@@ -82,6 +87,19 @@ export default function VigiaHeader({ pathname, usuario }) {
             >
               <Icono nombre="mas" tamano={18} />
               <span>Nueva Estación</span>
+            </button>
+          </div>
+        )}
+
+        {enBrigadas && esAdmin && (
+          <div className="vg-header-acciones">
+            <button
+              type="button"
+              className="vg-boton-principal"
+              onClick={() => navigate("/brigadas/nueva")}
+            >
+              <Icono nombre="mas" tamano={18} />
+              <span>Nueva Brigada</span>
             </button>
           </div>
         )}

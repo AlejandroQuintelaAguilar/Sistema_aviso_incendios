@@ -1,0 +1,573 @@
+"""Reglas de negocio de la iteración 3: gestión de brigadas.
+
+Trabaja sobre las tablas físicas `brigadas` y `brigada_miembros`. La tabla
+`incidente_brigadas` pertenece a la iteración 5 (Incidentes): aquí solo se lee
+y se cambia `estado_asignacion` al confirmar la recepción, sin crear filas.
+
+Los estados son los valores exactos de los CHECK de la base de datos:
+- brigadas.estado: ACTIVA, EN_OPERACION, DESCANSO, DISUELTA
+- brigada_miembros.estado: ACTIVO, INACTIVO
+- incidente_brigadas.estado_asignacion: ASIGNADA, EN_CAMINO, EN_SITIO, LIBERADA
+"""
+
+import re
+import unicodedata
+from datetime import date
+
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.config.database import db
+from app.models.brigada import Brigada, BrigadaMiembro
+from app.models.estacion import Estacion
+from app.models.usuario import Persona, Usuario
+from app.views.brigadas_view import bombero_a_dict, brigada_a_dict, miembro_a_dict
+
+ESTADOS_BRIGADA = ("ACTIVA", "EN_OPERACION", "DESCANSO", "DISUELTA")
+ROLES_BRIGADA = ("JEFE_CUADRILLA", "BOMBERO", "ESPECIALISTA", "PARAMEDICO")
+ESTADOS_MIEMBRO = ("ACTIVO", "INACTIVO")
+ESTADOS_CON_MOTIVO = ("DESCANSO", "DISUELTA")
+ASIGNACIONES_ACTIVAS = ("ASIGNADA", "EN_CAMINO", "EN_SITIO")
+MAX_MOTIVO = 500
+
+
+class ErrorModulo(Exception):
+    """Error de validación o persistencia con el campo responsable."""
+
+    def __init__(self, mensaje, campo=None, codigo=400):
+        super().__init__(mensaje)
+        self.mensaje = mensaje
+        self.campo = campo
+        self.codigo = codigo
+
+
+def texto(data, campo, etiqueta, maximo, obligatorio=True):
+    valor = data.get(campo, "")
+    if valor is None:
+        valor = ""
+    if not isinstance(valor, str):
+        raise ErrorModulo(f"{etiqueta}: debe ser texto", campo)
+    valor = valor.strip()
+    if obligatorio and not valor:
+        raise ErrorModulo(f"{etiqueta}: es obligatorio", campo)
+    if len(valor) > maximo:
+        raise ErrorModulo(f"{etiqueta}: admite como máximo {maximo} caracteres", campo)
+    return valor or None
+
+
+def normalizar_estado(valor, permitidos=ESTADOS_BRIGADA):
+    """Acepta códigos de la BD y etiquetas legibles de la interfaz."""
+    if valor is None or not str(valor).strip():
+        raise ErrorModulo("Estado: es obligatorio", "estado")
+    plano = unicodedata.normalize("NFKD", str(valor)).encode("ascii", "ignore").decode()
+    codigo = re.sub(r"[\s\-]+", "_", plano.strip()).strip("_").upper()
+    alias = {
+        "ACTIVO": "ACTIVA",
+        "OPERATIVA": "ACTIVA",
+        "EN_SERVICIO": "EN_OPERACION",
+        "EN_OPERACION": "EN_OPERACION",
+        "DE_BAJA": "DISUELTA",
+        "INACTIVA": "DISUELTA",
+        "DISUELTO": "DISUELTA",
+    }
+    codigo = alias.get(codigo, codigo)
+    if codigo not in permitidos:
+        raise ErrorModulo("Estado: no es un estado válido para una brigada", "estado")
+    return codigo
+
+
+def normalizar_rol(valor):
+    if valor is None or not str(valor).strip():
+        raise ErrorModulo("Rol en la brigada: es obligatorio", "rol_en_brigada")
+    plano = unicodedata.normalize("NFKD", str(valor)).encode("ascii", "ignore").decode()
+    codigo = re.sub(r"[\s\-]+", "_", plano.strip()).strip("_").upper()
+    alias = {"JEFE": "JEFE_CUADRILLA", "BOMBERO": "BOMBERO"}
+    codigo = alias.get(codigo, codigo)
+    if codigo not in ROLES_BRIGADA:
+        raise ErrorModulo("Rol en la brigada: no es un rol válido", "rol_en_brigada")
+    return codigo
+
+
+def _motivo(data, estado, estado_anterior=None):
+    valor = data.get("motivo", "")
+    if valor is None:
+        valor = ""
+    if not isinstance(valor, str):
+        raise ErrorModulo("Motivo: debe ser texto", "motivo")
+    valor = valor.strip()
+    if len(valor) > MAX_MOTIVO:
+        raise ErrorModulo(f"Motivo: admite como máximo {MAX_MOTIVO} caracteres", "motivo")
+    obligatorio = estado in ESTADOS_CON_MOTIVO or (
+        estado_anterior in ESTADOS_CON_MOTIVO and estado != estado_anterior
+    )
+    if obligatorio and not valor:
+        raise ErrorModulo("Motivo: es obligatorio para este cambio de estado", "motivo")
+    return valor or None
+
+
+def _brigada_desde(id_brigada):
+    brigada = db.session.get(Brigada, id_brigada)
+    if brigada is None:
+        raise ErrorModulo("La brigada no existe", codigo=404)
+    return brigada
+
+
+def _estacion_desde(data):
+    valor = data.get("id_estacion")
+    try:
+        id_estacion = int(valor)
+    except (TypeError, ValueError):
+        raise ErrorModulo("Estación: selecciona una estación válida", "id_estacion")
+    estacion = db.session.get(Estacion, id_estacion)
+    if estacion is None:
+        raise ErrorModulo("Estación: la estación seleccionada no existe", "id_estacion")
+    return estacion
+
+
+def _tiene_asignacion_activa(id_brigada):
+    total = db.session.execute(
+        text(
+            "select count(*) from incidente_brigadas "
+            "where id_brigada = :id and estado_asignacion in "
+            "('ASIGNADA', 'EN_CAMINO', 'EN_SITIO')"
+        ),
+        {"id": id_brigada},
+    ).scalar_one()
+    return total > 0
+
+
+def _total_miembros(id_brigada):
+    return BrigadaMiembro.query.filter_by(id_brigada=id_brigada, estado="ACTIVO").count()
+
+
+def _serializar(brigada, estacion=None):
+    return brigada_a_dict(
+        brigada,
+        estacion=estacion,
+        total_miembros=_total_miembros(brigada.id_brigada),
+        disponible=brigada.estado == "ACTIVA"
+        and not _tiene_asignacion_activa(brigada.id_brigada),
+    )
+
+
+def listar_brigadas(estado=None, disponibilidad=None):
+    """CU-05 / CU-13: listado con estado, estación y disponibilidad derivada."""
+    consulta = Brigada.query
+    filtro_estado = None
+    if estado is not None and str(estado).strip():
+        filtro_estado = normalizar_estado(estado)
+        consulta = consulta.filter_by(estado=filtro_estado)
+
+    filtro_disponibilidad = None
+    if disponibilidad is not None and str(disponibilidad).strip():
+        filtro_disponibilidad = (
+            unicodedata.normalize("NFKD", str(disponibilidad))
+            .encode("ascii", "ignore")
+            .decode()
+            .strip()
+            .upper()
+        )
+        if filtro_disponibilidad not in ("DISPONIBLE", "NO_DISPONIBLE"):
+            raise ErrorModulo(
+                "Disponibilidad: elige Disponible o No disponible", "disponibilidad"
+            )
+
+    brigadas = consulta.order_by(Brigada.nombre).all()
+    if not brigadas:
+        return []
+
+    estaciones = {
+        estacion.id_estacion: estacion
+        for estacion in Estacion.query.filter(
+            Estacion.id_estacion.in_([b.id_estacion for b in brigadas])
+        ).all()
+    }
+    resultado = []
+    for brigada in brigadas:
+        item = _serializar(brigada, estaciones.get(brigada.id_estacion))
+        if filtro_disponibilidad == "DISPONIBLE" and not item["disponible"]:
+            continue
+        if filtro_disponibilidad == "NO_DISPONIBLE" and item["disponible"]:
+            continue
+        resultado.append(item)
+    return resultado
+
+
+def consultar(estado=None, disponibilidad=None):
+    """CU-05: alias usado por la pantalla de consulta detallada."""
+    return listar_brigadas(estado=estado, disponibilidad=disponibilidad)
+
+
+def consultar_disponibilidad():
+    """CU-13: solo brigadas ACTIVAS sin asignación abierta.
+
+    La disponibilidad NO se guarda en una columna: se deriva del estado y de
+    `incidente_brigadas`, para que nunca se desincronice.
+    """
+    return listar_brigadas(disponibilidad="DISPONIBLE")
+
+
+def obtener_brigada(id_brigada):
+    """Devuelve una brigada para cargar el formulario de edición."""
+    brigada = _brigada_desde(id_brigada)
+    return _serializar(brigada, db.session.get(Estacion, brigada.id_estacion))
+
+
+def crear_brigada(data, usuario):
+    """CU-01: alta de brigada ligada a una estación existente."""
+    if not isinstance(data, dict):
+        raise ErrorModulo("Los datos de la brigada no son válidos")
+
+    nombre = texto(data, "nombre", "Nombre", 100)
+    estacion = _estacion_desde(data)
+    estado = normalizar_estado(data.get("estado") or "ACTIVA")
+    motivo = _motivo(data, estado)
+
+    repetida = (
+        Brigada.query.filter(db.func.lower(Brigada.nombre) == nombre.lower()).first()
+    )
+    if repetida is not None:
+        raise ErrorModulo("Nombre: ya existe una brigada con ese nombre", "nombre")
+
+    brigada = Brigada(
+        nombre=nombre,
+        estado=estado,
+        motivo_estado=motivo,
+        id_estacion=estacion.id_estacion,
+    )
+    db.session.add(brigada)
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo guardar la brigada. Intenta de nuevo", codigo=500)
+    return _serializar(brigada, estacion)
+
+
+def editar_brigada(id_brigada, data, usuario):
+    """CU-02: editar nombre y estación de una brigada existente."""
+    if not isinstance(data, dict):
+        raise ErrorModulo("Los datos de la brigada no son válidos")
+    brigada = _brigada_desde(id_brigada)
+    nombre = texto(data, "nombre", "Nombre", 100)
+    estacion = _estacion_desde(data)
+
+    repetida = (
+        Brigada.query.filter(db.func.lower(Brigada.nombre) == nombre.lower())
+        .filter(Brigada.id_brigada != id_brigada)
+        .first()
+    )
+    if repetida is not None:
+        raise ErrorModulo("Nombre: ya existe una brigada con ese nombre", "nombre")
+
+    brigada.nombre = nombre
+    brigada.id_estacion = estacion.id_estacion
+    brigada.updated_at = db.func.now()
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo actualizar la brigada. Intenta de nuevo", codigo=500)
+    return _serializar(brigada, estacion)
+
+
+def cambiar_estado(id_brigada, data, usuario):
+    """CU-11: actualizar estado/disponibilidad, registrando el motivo."""
+    brigada = _brigada_desde(id_brigada)
+    if not isinstance(data, dict):
+        raise ErrorModulo("Los datos del cambio no son válidos")
+    estado = normalizar_estado(data.get("estado"))
+    motivo = _motivo(data, estado, brigada.estado)
+
+    brigada.estado = estado
+    brigada.motivo_estado = motivo
+    brigada.updated_at = db.func.now()
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo actualizar el estado. Intenta de nuevo", codigo=500)
+    resultado = _serializar(brigada)
+    resultado["modificado_por"] = usuario.nombre_usuario
+    return resultado
+
+
+def desactivar_brigada(id_brigada, data, usuario):
+    """CU-03: baja lógica de la brigada (estado DISUELTA)."""
+    datos = dict(data) if isinstance(data, dict) else {}
+    datos["estado"] = "DISUELTA"
+    return cambiar_estado(id_brigada, datos, usuario)
+
+
+def reactivar_brigada(id_brigada, data, usuario):
+    """CU-04: reactivar una brigada dada de baja (estado ACTIVA)."""
+    datos = dict(data) if isinstance(data, dict) else {}
+    datos["estado"] = "ACTIVA"
+    if not str(datos.get("motivo") or "").strip():
+        datos["motivo"] = "Reactivación de la brigada"
+    return cambiar_estado(id_brigada, datos, usuario)
+
+
+def listar_miembros(id_brigada):
+    """CU-06: integrantes de una brigada con su rol global y su rol interno."""
+    _brigada_desde(id_brigada)
+    miembros = (
+        BrigadaMiembro.query.filter_by(id_brigada=id_brigada)
+        .order_by(BrigadaMiembro.estado.asc(), BrigadaMiembro.id_brigada_miembro)
+        .all()
+    )
+    if not miembros:
+        return []
+
+    ids_personas = [m.id_persona for m in miembros]
+    personas = {
+        p.id_persona: p
+        for p in Persona.query.filter(Persona.id_persona.in_(ids_personas)).all()
+    }
+    usuarios = {
+        u.id_persona: u
+        for u in Usuario.query.filter(Usuario.id_persona.in_(ids_personas)).all()
+    }
+    resultado = []
+    for miembro in miembros:
+        usuario = usuarios.get(miembro.id_persona)
+        resultado.append(
+            miembro_a_dict(
+                miembro,
+                persona=personas.get(miembro.id_persona),
+                nombre_usuario=usuario.nombre_usuario if usuario else None,
+                rol_global=usuario.rol.nombre_rol if usuario else None,
+            )
+        )
+    return resultado
+
+
+def bomberos_disponibles():
+    """CU-08: bomberos activos que no estén ya en otra brigada activa."""
+    ocupados = {
+        fila[0]
+        for fila in db.session.execute(
+            text("select id_persona from brigada_miembros where estado = 'ACTIVO'")
+        ).fetchall()
+    }
+    candidatos = (
+        Usuario.query.join(Usuario.rol)
+        .filter(Usuario.rol.has(nombre_rol="BOMBERO"))
+        .filter(Usuario.estado == "ACTIVO")
+        .order_by(Usuario.nombre_usuario)
+        .all()
+    )
+    return [
+        bombero_a_dict(usuario)
+        for usuario in candidatos
+        if usuario.persona.id_persona not in ocupados
+    ]
+
+
+def asignar_miembros(id_brigada, data, usuario):
+    """CU-07: asignar bomberos a una brigada y notificar internamente."""
+    brigada = _brigada_desde(id_brigada)
+    if brigada.estado == "DISUELTA":
+        raise ErrorModulo("No se pueden asignar bomberos a una brigada disuelta", "id_brigada")
+    if not isinstance(data, dict):
+        raise ErrorModulo("Los datos de la asignación no son válidos")
+
+    miembros = data.get("miembros")
+    if not isinstance(miembros, list) or not miembros:
+        raise ErrorModulo("Selecciona al menos un bombero", "miembros")
+
+    ocupados = {
+        fila[0]
+        for fila in db.session.execute(
+            text("select id_persona from brigada_miembros where estado = 'ACTIVO'")
+        ).fetchall()
+    }
+    nuevos = []
+    vistos = set()
+    for item in miembros:
+        if not isinstance(item, dict):
+            raise ErrorModulo("La lista de bomberos no es válida", "miembros")
+        try:
+            id_persona = int(item.get("id_persona"))
+        except (TypeError, ValueError):
+            raise ErrorModulo("Selecciona un bombero válido", "miembros")
+        if id_persona in vistos:
+            raise ErrorModulo("Un bombero aparece repetido en la lista", "miembros")
+        vistos.add(id_persona)
+
+        candidato = Usuario.query.filter_by(id_persona=id_persona).first()
+        if candidato is None or candidato.rol.nombre_rol != "BOMBERO":
+            raise ErrorModulo("Solo se pueden asignar usuarios con rol BOMBERO", "miembros")
+        if candidato.estado != "ACTIVO":
+            raise ErrorModulo("El bombero seleccionado no está activo", "miembros")
+        if (id_brigada, id_persona) in ocupados:
+            raise ErrorModulo("El bombero ya pertenece a esta brigada", "miembros")
+        if id_persona in ocupados:
+            raise ErrorModulo("El bombero ya está asignado a otra brigada activa", "miembros")
+
+        rol = normalizar_rol(item.get("rol_en_brigada"))
+        nuevos.append(
+            BrigadaMiembro(
+                id_brigada=id_brigada,
+                id_persona=id_persona,
+                rol_en_brigada=rol,
+                fecha_incorporacion=date.today(),
+                estado="ACTIVO",
+            )
+        )
+        ocupados.add(id_persona)
+
+    for integrante in nuevos:
+        db.session.add(integrante)
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo guardar la asignación. Intenta de nuevo", codigo=500)
+
+    nombres = [
+        f"{u.persona.nombres} {u.persona.apellidos}".strip()
+        for u in Usuario.query.filter(
+            Usuario.id_persona.in_([i.id_persona for i in nuevos])
+        ).all()
+    ]
+    return {
+        "asignados": [miembro_a_dict(i) for i in nuevos],
+        "notificacion": {
+            "canal": "interno",
+            "integrantes": len(nombres),
+            "nombres": nombres,
+        },
+    }
+
+
+def retirar_miembro(id_brigada, id_persona, usuario):
+    """CU-10: baja lógica del integrante (estado INACTIVO)."""
+    _brigada_desde(id_brigada)
+    miembro = (
+        BrigadaMiembro.query.filter_by(
+            id_brigada=id_brigada, id_persona=id_persona, estado="ACTIVO"
+        ).first()
+    )
+    if miembro is None:
+        raise ErrorModulo("El integrante activo no existe en esta brigada", codigo=404)
+    miembro.estado = "INACTIVO"
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo retirar al integrante. Intenta de nuevo", codigo=500)
+    return miembro_a_dict(miembro)
+
+
+def _es_jefe_de(usuario, id_brigada):
+    if usuario.rol.nombre_rol != "BOMBERO":
+        return False
+    id_persona = usuario.persona.id_persona
+    return (
+        BrigadaMiembro.query.filter_by(
+            id_brigada=id_brigada,
+            id_persona=id_persona,
+            rol_en_brigada="JEFE_CUADRILLA",
+            estado="ACTIVO",
+        ).first()
+        is not None
+    )
+
+
+def incendios_asignados(usuario):
+    """CU-14: asignaciones de la brigada. Solo lectura de tablas de Incidentes."""
+    sql = (
+        "select ib.id_incidente, ib.id_brigada, ib.fecha_asignacion, "
+        "ib.estado_asignacion, b.nombre as brigada, i.ubicacion, "
+        "i.gravedad, i.estado as estado_incidente, i.fecha_inicio "
+        "from incidente_brigadas ib "
+        "join brigadas b on b.id_brigada = ib.id_brigada "
+        "left join incidentes i on i.id_incidente = ib.id_incidente "
+    )
+    parametros = {}
+    if usuario.rol.nombre_rol == "BOMBERO":
+        sql += (
+            "where exists (select 1 from brigada_miembros bm "
+            "where bm.id_brigada = ib.id_brigada and bm.id_persona = :persona "
+            "and bm.rol_en_brigada = 'JEFE_CUADRILLA' and bm.estado = 'ACTIVO') "
+        )
+        parametros["persona"] = usuario.persona.id_persona
+    sql += "order by ib.fecha_asignacion desc"
+
+    filas = db.session.execute(text(sql), parametros).mappings().all()
+    return [
+        {
+            "id_incidente": fila["id_incidente"],
+            "id_brigada": fila["id_brigada"],
+            "brigada": fila["brigada"],
+            "fecha_asignacion": _fecha(fila["fecha_asignacion"]),
+            "estado_asignacion": fila["estado_asignacion"],
+            "ubicacion": fila["ubicacion"],
+            "gravedad": fila["gravedad"],
+            "estado_incidente": fila["estado_incidente"],
+            "fecha_inicio": _fecha(fila["fecha_inicio"]),
+        }
+        for fila in filas
+    ]
+
+
+def _fecha(valor):
+    return valor.isoformat() if valor is not None else None
+
+
+def confirmar_recepcion(id_incidente, id_brigada, usuario):
+    """CU-15: el jefe de cuadrilla confirma; ASIGNADA -> EN_CAMINO.
+
+    Se usa `EN_CAMINO` porque es el primer estado permitido por el CHECK de
+    `incidente_brigadas` después de `ASIGNADA`; no se inventa un valor nuevo
+    ni se modifica la columna (pertenece a la iteración 5).
+    """
+    if not _es_jefe_de(usuario, id_brigada):
+        raise ErrorModulo(
+            "Solo el jefe de cuadrilla de esta brigada puede confirmar la recepción",
+            codigo=403,
+        )
+
+    fila = db.session.execute(
+        text(
+            "select estado_asignacion from incidente_brigadas "
+            "where id_incidente = :incidente and id_brigada = :brigada"
+        ),
+        {"incidente": id_incidente, "brigada": id_brigada},
+    ).first()
+    if fila is None:
+        raise ErrorModulo("La asignación no existe", codigo=404)
+
+    estado = fila[0]
+    if estado == "EN_CAMINO":
+        return {
+            "id_incidente": id_incidente,
+            "id_brigada": id_brigada,
+            "estado_asignacion": estado,
+            "mensaje": "La asignación ya había sido confirmada",
+        }
+    if estado != "ASIGNADA":
+        raise ErrorModulo(
+            f"No se puede confirmar una asignación en estado {estado}", "estado_asignacion"
+        )
+
+    try:
+        db.session.execute(
+            text(
+                "update incidente_brigadas set estado_asignacion = 'EN_CAMINO' "
+                "where id_incidente = :incidente and id_brigada = :brigada"
+            ),
+            {"incidente": id_incidente, "brigada": id_brigada},
+        )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo confirmar la recepción. Intenta de nuevo", codigo=500)
+
+    return {
+        "id_incidente": id_incidente,
+        "id_brigada": id_brigada,
+        "estado_asignacion": "EN_CAMINO",
+        "mensaje": "Recepción confirmada: la brigada quedó en camino",
+    }

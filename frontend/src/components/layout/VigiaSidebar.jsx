@@ -17,6 +17,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
   const nombre = usuario?.persona?.nombres || usuario?.nombre_usuario || "Operador";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "V";
   const enRecursos = pathname.startsWith("/recursos");
+  const enBrigadas = pathname.startsWith("/brigadas");
   const enUsuarios = pathname.startsWith("/usuarios");
 
   return (
@@ -72,6 +73,21 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                 </Link>
               </li>
             )}
+            {OPERATIVOS.includes(rol) && (
+              <li>
+                <Link
+                  to="/brigadas"
+                  className={`vg-nav-enlace${enBrigadas ? " activo" : ""}`}
+                  onClick={() => setSidebarAbierto(false)}
+                  title={colapsado ? "Brigadas" : undefined}
+                  aria-current={enBrigadas ? "page" : undefined}
+                >
+                  <span className="vg-nav-numero">2</span>
+                  <Icono nombre="escudo" tamano={18} />
+                  <span className="vg-nav-texto">Brigadas</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -98,7 +114,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                     title={colapsado ? "Usuarios" : undefined}
                     aria-current={enUsuarios ? "page" : undefined}
                   >
-                    <span className="vg-nav-numero">2</span>
+                    <span className="vg-nav-numero">3</span>
                     <Icono nombre="usuario" tamano={18} />
                     <span className="vg-nav-texto">Usuarios</span>
                   </Link>
