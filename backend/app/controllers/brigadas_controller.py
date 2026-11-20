@@ -21,6 +21,7 @@ def listar():
         brigadas_service.listar_brigadas(
             estado=request.args.get("estado"),
             disponibilidad=request.args.get("disponibilidad"),
+            orden=request.args.get("orden"),
         )
     )
 
@@ -31,6 +32,7 @@ def consultar():
         datos = brigadas_service.consultar(
             estado=request.args.get("estado"),
             disponibilidad=request.args.get("disponibilidad"),
+            orden=request.args.get("orden"),
         )
     except ErrorModulo as exc:
         return _error(exc)
@@ -97,6 +99,11 @@ def reactivar(id_brigada):
     except ErrorModulo as exc:
         return _error(exc)
     return jsonify({"mensaje": "Brigada reactivada correctamente", "brigada": brigada})
+
+
+def mis_brigadas():
+    """CU-05/CU-06: solo lectura, el bombero ve dónde está asignado."""
+    return jsonify(brigadas_service.mis_brigadas(g.usuario))
 
 
 def listar_miembros(id_brigada):

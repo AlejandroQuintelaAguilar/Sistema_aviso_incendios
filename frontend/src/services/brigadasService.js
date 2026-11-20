@@ -4,6 +4,7 @@ export function listar(filtros = {}) {
   const consulta = new URLSearchParams();
   if (filtros.estado) consulta.set("estado", filtros.estado);
   if (filtros.disponibilidad) consulta.set("disponibilidad", filtros.disponibilidad);
+  if (filtros.orden) consulta.set("orden", filtros.orden);
   const sufijo = consulta.toString() ? `?${consulta}` : "";
   return api(`/brigadas/consultar${sufijo}`);
 }
@@ -47,6 +48,10 @@ export function reactivar(idBrigada, motivo) {
     method: "PATCH",
     body: { motivo },
   });
+}
+
+export function misBrigadas() {
+  return api("/brigadas/mis-brigadas");
 }
 
 export function miembros(idBrigada) {

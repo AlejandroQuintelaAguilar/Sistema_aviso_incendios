@@ -150,7 +150,7 @@ def _serializar(brigada, estacion=None):
     )
 
 
-def listar_brigadas(estado=None, disponibilidad=None):
+def listar_brigadas(estado=None, disponibilidad=None, orden=None):
     """CU-05 / CU-13: listado con estado, estación y disponibilidad derivada."""
     consulta = Brigada.query
     filtro_estado = None
@@ -190,12 +190,24 @@ def listar_brigadas(estado=None, disponibilidad=None):
         if filtro_disponibilidad == "NO_DISPONIBLE" and item["disponible"]:
             continue
         resultado.append(item)
+
+    criterio = str(orden or "").strip().lower() or "nombre_asc"
+    if criterio == "nombre_desc":
+        resultado.sort(key=lambda item: item["nombre"].lower(), reverse=True)
+    elif criterio == "estado":
+        resultado.sort(key=lambda item: (item["estado"], item["nombre"].lower()))
+    elif criterio == "disponibilidad":
+        resultado.sort(key=lambda item: (not item["disponible"], item["nombre"].lower()))
+    else:
+        resultado.sort(key=lambda item: item["nombre"].lower())
     return resultado
 
 
-def consultar(estado=None, disponibilidad=None):
+def consultar(estado=None, disponibilidad=None, orden=None):
     """CU-05: alias usado por la pantalla de consulta detallada."""
-    return listar_brigadas(estado=estado, disponibilidad=disponibilidad)
+    return listar_brigadas(
+        estado=estado, disponibilidad=disponibilidad, orden=orden
+    )
 
 
 def consultar_disponibilidad():
@@ -308,6 +320,36 @@ def reactivar_brigada(id_brigada, data, usuario):
     return cambiar_estado(id_brigada, datos, usuario)
 
 
+def mis_brigadas(usuario):
+    """Vista de solo lectura: brigadas activas a las que pertenece el bombero."""
+    miembros = (
+        BrigadaMiembro.query.filter_by(
+            id_persona=usuario.persona.id_persona, estado="ACTIVO"
+        )
+        .order_by(BrigadaMiembro.fecha_incorporacion.desc())
+        .all()
+    )
+    resultado = []
+    for miembro in miembros:
+        brigada = db.session.get(Brigada, miembro.id_brigada)
+        if brigada is None:
+            continue
+        estacion = db.session.get(Estacion, brigada.id_estacion)
+        resultado.append(
+            {
+                "id_brigada": brigada.id_brigada,
+                "nombre": brigada.nombre,
+                "estacion": estacion.nombre if estacion is not None else None,
+                "rol_en_brigada": miembro.rol_en_brigada,
+                "fecha_incorporacion": _fecha(miembro.fecha_incorporacion),
+                "estado_brigada": brigada.estado,
+                "disponible": brigada.estado == "ACTIVA"
+                and not _tiene_asignacion_activa(brigada.id_brigada),
+            }
+        )
+    return resultado
+
+
 def listar_miembros(id_brigada):
     """CU-06: integrantes de una brigada con su rol global y su rol interno."""
     _brigada_desde(id_brigada)
@@ -357,11 +399,12 @@ def bomberos_disponibles():
         .order_by(Usuario.nombre_usuario)
         .all()
     )
-    return [
+    resultado = [
         bombero_a_dict(usuario)
         for usuario in candidatos
         if usuario.persona.id_persona not in ocupados
     ]
+    return sorted(resultado, key=lambda bombero: bombero["nombre"].lower())
 
 
 def asignar_miembros(id_brigada, data, usuario):
@@ -376,13 +419,18 @@ def asignar_miembros(id_brigada, data, usuario):
     if not isinstance(miembros, list) or not miembros:
         raise ErrorModulo("Selecciona al menos un bombero", "miembros")
 
+    # id_persona -> id_brigada de las pertenencias activas.
     ocupados = {
-        fila[0]
+        fila[0]: fila[1]
         for fila in db.session.execute(
-            text("select id_persona from brigada_miembros where estado = 'ACTIVO'")
+            text(
+                "select id_persona, id_brigada from brigada_miembros "
+                "where estado = 'ACTIVO'"
+            )
         ).fetchall()
     }
     nuevos = []
+    reincorporados = []
     vistos = set()
     for item in miembros:
         if not isinstance(item, dict):
@@ -400,22 +448,33 @@ def asignar_miembros(id_brigada, data, usuario):
             raise ErrorModulo("Solo se pueden asignar usuarios con rol BOMBERO", "miembros")
         if candidato.estado != "ACTIVO":
             raise ErrorModulo("El bombero seleccionado no está activo", "miembros")
-        if (id_brigada, id_persona) in ocupados:
+        if ocupados.get(id_persona) == id_brigada:
             raise ErrorModulo("El bombero ya pertenece a esta brigada", "miembros")
         if id_persona in ocupados:
             raise ErrorModulo("El bombero ya está asignado a otra brigada activa", "miembros")
 
         rol = normalizar_rol(item.get("rol_en_brigada"))
-        nuevos.append(
-            BrigadaMiembro(
-                id_brigada=id_brigada,
-                id_persona=id_persona,
-                rol_en_brigada=rol,
-                fecha_incorporacion=date.today(),
-                estado="ACTIVO",
+        # El UNIQUE (id_brigada, id_persona) impide insertar una fila nueva
+        # cuando el bombero ya estuvo aquí: se reactiva la fila existente.
+        integrante = BrigadaMiembro.query.filter_by(
+            id_brigada=id_brigada, id_persona=id_persona
+        ).first()
+        if integrante is not None:
+            integrante.estado = "ACTIVO"
+            integrante.rol_en_brigada = rol
+            integrante.fecha_incorporacion = date.today()
+            reincorporados.append(integrante)
+        else:
+            nuevos.append(
+                BrigadaMiembro(
+                    id_brigada=id_brigada,
+                    id_persona=id_persona,
+                    rol_en_brigada=rol,
+                    fecha_incorporacion=date.today(),
+                    estado="ACTIVO",
+                )
             )
-        )
-        ocupados.add(id_persona)
+        ocupados[id_persona] = id_brigada
 
     for integrante in nuevos:
         db.session.add(integrante)
@@ -425,14 +484,24 @@ def asignar_miembros(id_brigada, data, usuario):
         db.session.rollback()
         raise ErrorModulo("No se pudo guardar la asignación. Intenta de nuevo", codigo=500)
 
+    asignados = reincorporados + nuevos
+    ids = [i.id_persona for i in asignados]
+    usuarios_asignados = Usuario.query.filter(Usuario.id_persona.in_(ids)).all()
+    por_persona = {u.id_persona: u for u in usuarios_asignados}
     nombres = [
         f"{u.persona.nombres} {u.persona.apellidos}".strip()
-        for u in Usuario.query.filter(
-            Usuario.id_persona.in_([i.id_persona for i in nuevos])
-        ).all()
+        for u in usuarios_asignados
     ]
     return {
-        "asignados": [miembro_a_dict(i) for i in nuevos],
+        "asignados": [
+            miembro_a_dict(
+                integrante,
+                persona=por_persona[integrante.id_persona].persona,
+                nombre_usuario=por_persona[integrante.id_persona].nombre_usuario,
+                rol_global=por_persona[integrante.id_persona].rol.nombre_rol,
+            )
+            for integrante in asignados
+        ],
         "notificacion": {
             "canal": "interno",
             "integrantes": len(nombres),

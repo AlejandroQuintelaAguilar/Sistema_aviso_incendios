@@ -5,6 +5,7 @@ import ModalGestionBrigada from "../../components/brigadas/ModalGestionBrigada";
 import {
   claseEstadoBrigada,
   etiquetaEstadoBrigada,
+  etiquetaRolBrigada,
 } from "../../components/brigadas/estadosBrigada";
 import AppLayout from "../../components/layout/AppLayout";
 import Icono from "../../components/layout/IconosVigia";
@@ -16,12 +17,16 @@ export default function BrigadasPage() {
   const { state } = useLocation();
   const esAdmin = usuario?.rol === "ADMINISTRADOR";
   const esGestor = esAdmin || usuario?.rol === "OPERADOR";
+  const esBombero = usuario?.rol === "BOMBERO";
 
+  const [misBrigadas, setMisBrigadas] = useState([]);
+  const [cargandoMis, setCargandoMis] = useState(false);
   const [brigadas, setBrigadas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState(state?.mensaje || "");
   const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState("nombre_asc");
   const [gestionando, setGestionando] = useState(null);
   const [editorEstado, setEditorEstado] = useState(null);
   const [guardando, setGuardando] = useState(false);
@@ -30,17 +35,37 @@ export default function BrigadasPage() {
     setCargando(true);
     setError("");
     try {
-      setBrigadas(await brigadasService.listar());
+      setBrigadas(await brigadasService.listar({ orden }));
     } catch (err) {
       setError(err.message);
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [orden]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    if (!esBombero) return;
+    let activo = true;
+    setCargandoMis(true);
+    brigadasService
+      .misBrigadas()
+      .then((lista) => {
+        if (activo) setMisBrigadas(lista);
+      })
+      .catch(() => {
+        if (activo) setMisBrigadas([]);
+      })
+      .finally(() => {
+        if (activo) setCargandoMis(false);
+      });
+    return () => {
+      activo = false;
+    };
+  }, [esBombero]);
 
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -104,6 +129,43 @@ export default function BrigadasPage() {
           </Link>
         </div>
 
+        {esBombero && (
+          <section className="bg-mis-brigadas">
+            <div className="bg-mis-cabecera">
+              <span className="re-card-icono"><Icono nombre="escudo" tamano={22} /></span>
+              <div>
+                <span className="re-etiqueta">Tu información</span>
+                <h2>Mi brigada</h2>
+                <p>Información de solo lectura: dónde estás asignado actualmente.</p>
+              </div>
+            </div>
+            {cargandoMis ? (
+              <p className="estado">Consultando tus brigadas.</p>
+            ) : misBrigadas.length === 0 ? (
+              <p className="re-vacio-seccion">No estás asignado a ninguna brigada activa.</p>
+            ) : (
+              <ul className="bg-listado">
+                {misBrigadas.map((brigada) => (
+                  <li className="bg-fila" key={brigada.id_brigada}>
+                    <span className="bg-fila-icono"><Icono nombre="escudo" tamano={18} /></span>
+                    <span className="re-unidad-datos">
+                      <strong>{brigada.nombre}</strong>
+                      <small>
+                        {etiquetaRolBrigada(brigada.rol_en_brigada)}
+                        {" · "}{brigada.estacion || "Sin estación"}
+                        {" · Desde "}{brigada.fecha_incorporacion?.split("-").reverse().join("/") || "-"}
+                      </small>
+                    </span>
+                    <span className={`re-estado ${claseEstadoBrigada(brigada.estado_brigada)}`}>
+                      <i className="vg-punto" /> {etiquetaEstadoBrigada(brigada.estado_brigada)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
         <div className="re-kpis">
           <div className="re-kpi re-kpi-oscuro">
             <span className="re-kpi-icono"><Icono nombre="escudo" tamano={20} /></span>
@@ -138,6 +200,15 @@ export default function BrigadasPage() {
                 <Icono nombre="cerrar" tamano={15} />
               </button>
             )}
+          </label>
+          <label className="bg-filtro-estado">
+            <span>Ordenar</span>
+            <select value={orden} onChange={(evento) => setOrden(evento.target.value)}>
+              <option value="nombre_asc">Nombre A-Z</option>
+              <option value="nombre_desc">Nombre Z-A</option>
+              <option value="estado">Por estado</option>
+              <option value="disponibilidad">Por disponibilidad</option>
+            </select>
           </label>
           <div className="bg-barra-acciones">
             <Link to="/brigadas/incendios" className="vg-boton-secundario">
@@ -180,7 +251,7 @@ export default function BrigadasPage() {
                         <p>
                           <Icono nombre="estacion" tamano={14} /> {brigada.estacion || "Sin estación"}
                           {" · "}
-                          <Icono nombre="usuario" tamano={14} /> {brigada.total_miembros} integrantes
+                          <Icono nombre="usuario" tamano={14} /> {brigada.total_miembros} integrante{brigada.total_miembros === 1 ? "" : "s"}
                         </p>
                         {brigada.motivo_estado && <p className="bg-motivo">Motivo: {brigada.motivo_estado}</p>}
                       </div>

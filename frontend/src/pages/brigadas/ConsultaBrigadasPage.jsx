@@ -19,6 +19,7 @@ export default function ConsultaBrigadasPage() {
 
   const [filtro, setFiltro] = useState("TODOS");
   const [estado, setEstado] = useState("");
+  const [orden, setOrden] = useState("nombre_asc");
   const [brigadas, setBrigadas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -31,7 +32,7 @@ export default function ConsultaBrigadasPage() {
     setCargando(true);
     setError("");
     try {
-      const filtros = { estado };
+      const filtros = { estado, orden };
       if (filtro === "DISPONIBLE" || filtro === "NO_DISPONIBLE") {
         filtros.disponibilidad = filtro;
       }
@@ -41,7 +42,7 @@ export default function ConsultaBrigadasPage() {
     } finally {
       setCargando(false);
     }
-  }, [filtro, estado]);
+  }, [filtro, estado, orden]);
 
   useEffect(() => {
     cargar();
@@ -101,6 +102,15 @@ export default function ConsultaBrigadasPage() {
               {ESTADOS_BRIGADA.map(([codigo, etiqueta]) => (
                 <option key={codigo} value={codigo}>{etiqueta}</option>
               ))}
+            </select>
+          </label>
+          <label className="bg-filtro-estado">
+            <span>Ordenar</span>
+            <select value={orden} onChange={(evento) => setOrden(evento.target.value)}>
+              <option value="nombre_asc">Nombre A-Z</option>
+              <option value="nombre_desc">Nombre Z-A</option>
+              <option value="estado">Por estado</option>
+              <option value="disponibilidad">Por disponibilidad</option>
             </select>
           </label>
         </div>

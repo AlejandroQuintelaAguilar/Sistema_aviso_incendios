@@ -36,6 +36,12 @@ def bomberos_disponibles():
     return brigadas_controller.bomberos_disponibles()
 
 
+@brigadas_bp.get("/mis-brigadas")
+@rol_requerido("BOMBERO")
+def mis_brigadas():
+    return brigadas_controller.mis_brigadas()
+
+
 @brigadas_bp.get("/incendios-asignados")
 @rol_requerido(*LECTORES)
 def incendios_asignados():

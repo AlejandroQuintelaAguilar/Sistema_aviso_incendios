@@ -10,6 +10,7 @@ export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCam
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [seleccionados, setSeleccionados] = useState([]);
+  const [buscaBombero, setBuscaBombero] = useState("");
   const [rol, setRol] = useState("BOMBERO");
   const [guardando, setGuardando] = useState(false);
 
@@ -75,6 +76,10 @@ export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCam
   }
 
   const activos = integrantes.filter((miembro) => miembro.estado === "ACTIVO");
+  const textoBusqueda = buscaBombero.trim().toLowerCase();
+  const bomberosFiltrados = disponibles.filter((bombero) =>
+    `${bombero.nombre} ${bombero.nombre_usuario}`.toLowerCase().includes(textoBusqueda)
+  );
 
   return (
     <div className="vg-modal-fondo" onMouseDown={(evento) => evento.target === evento.currentTarget && onCerrar()}>
@@ -140,12 +145,28 @@ export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCam
                     </p>
                   ) : (
                     <form className="bg-forma" onSubmit={asignar}>
+                      <label className="campo" htmlFor="bg-busca-bombero">
+                        <span>Buscar bombero por nombre o usuario</span>
+                        <input
+                          id="bg-busca-bombero"
+                          type="search"
+                          value={buscaBombero}
+                          onChange={(evento) => setBuscaBombero(evento.target.value)}
+                          placeholder="Ej. Rosa o bombero_rosa"
+                        />
+                      </label>
+                      {bomberosFiltrados.length === 0 ? (
+                        <p className="re-vacio-seccion">
+                          Ningún bombero coincide con "{buscaBombero}".
+                        </p>
+                      ) : (
+                        <>
                       <label className="campo" htmlFor="bg-bomberos">
                         <span>Bomberos disponibles (puedes elegir varios)</span>
                         <select
                           id="bg-bomberos"
                           multiple
-                          size={Math.min(5, Math.max(3, disponibles.length))}
+                          size={Math.min(5, Math.max(3, bomberosFiltrados.length))}
                           value={seleccionados.map(String)}
                           onChange={(evento) =>
                             setSeleccionados(
@@ -154,13 +175,15 @@ export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCam
                           }
                           required
                         >
-                          {disponibles.map((bombero) => (
+                          {bomberosFiltrados.map((bombero) => (
                             <option key={bombero.id_persona} value={bombero.id_persona}>
                               {bombero.nombre} ({bombero.nombre_usuario})
                             </option>
                           ))}
                         </select>
                       </label>
+                        </>
+                      )}
 
                       <label className="campo" htmlFor="bg-rol">
                         <span>Rol dentro de la brigada</span>
