@@ -36,6 +36,18 @@ def bomberos_disponibles():
     return brigadas_controller.bomberos_disponibles()
 
 
+@brigadas_bp.get("/mis-notificaciones")
+@rol_requerido("BOMBERO")
+def mis_notificaciones():
+    return brigadas_controller.mis_notificaciones()
+
+
+@brigadas_bp.patch("/notificaciones/<int:id_notificacion>/responder")
+@rol_requerido("BOMBERO")
+def responder_notificacion(id_notificacion):
+    return brigadas_controller.responder_notificacion(id_notificacion)
+
+
 @brigadas_bp.get("/mis-brigadas")
 @rol_requerido("BOMBERO")
 def mis_brigadas():

@@ -44,4 +44,26 @@ class BrigadaMiembro(db.Model):
     )
     rol_en_brigada = db.Column(db.String(50))
     fecha_incorporacion = db.Column(db.Date)
-    estado = db.Column(db.String(20), nullable=False, default="ACTIVO")
+    estado = db.Column(db.String(20), nullable=False, default="PENDIENTE")
+
+
+class NotificacionBrigada(db.Model):
+    __tablename__ = "notificaciones_brigada"
+
+    id_notificacion = db.Column(db.Integer, primary_key=True)
+    id_brigada = db.Column(
+        db.Integer,
+        db.ForeignKey("brigadas.id_brigada", ondelete="CASCADE"),
+        nullable=False,
+    )
+    id_persona = db.Column(
+        db.Integer,
+        db.ForeignKey("personas.id_persona", ondelete="CASCADE"),
+        nullable=False,
+    )
+    tipo = db.Column(db.String(30), nullable=False, default="ASIGNACION_BRIGADA")
+    estado = db.Column(db.String(20), nullable=False, default="PENDIENTE")
+    mensaje = db.Column(db.Text)
+    motivo_rechazo = db.Column(db.Text)
+    fecha_creacion = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+    fecha_respuesta = db.Column(db.DateTime(timezone=True))

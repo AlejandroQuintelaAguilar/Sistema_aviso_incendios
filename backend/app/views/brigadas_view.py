@@ -35,6 +35,21 @@ def miembro_a_dict(miembro, persona=None, nombre_usuario=None, rol_global=None):
     }
 
 
+def notificacion_a_dict(notificacion, brigada=None):
+    return {
+        "id_notificacion": notificacion.id_notificacion,
+        "id_brigada": notificacion.id_brigada,
+        "brigada": brigada.nombre if brigada is not None else None,
+        "id_persona": notificacion.id_persona,
+        "tipo": notificacion.tipo,
+        "estado": notificacion.estado,
+        "mensaje": notificacion.mensaje,
+        "motivo_rechazo": notificacion.motivo_rechazo,
+        "fecha_creacion": _fecha(notificacion.fecha_creacion),
+        "fecha_respuesta": _fecha(notificacion.fecha_respuesta),
+    }
+
+
 def bombero_a_dict(usuario):
     persona = usuario.persona
     return {

@@ -45,6 +45,25 @@ export function etiquetaRolBrigada(rol) {
   return encontrado ? encontrado[1] : rol || "Sin rol";
 }
 
+export const ESTADOS_MIEMBRO = {
+  ACTIVO: { etiqueta: "Activo", clase: "disponible" },
+  PENDIENTE: { etiqueta: "Invitación pendiente", clase: "en-mision" },
+  RECHAZADA: { etiqueta: "Rechazada", clase: "fuera-servicio" },
+  INACTIVO: { etiqueta: "Inactivo", clase: "mantenimiento" },
+};
+
+export function estadoMiembro(estado) {
+  return ESTADOS_MIEMBRO[estado] || { etiqueta: estado || "-", clase: "mantenimiento" };
+}
+
+export function estadoNotificacion(estado) {
+  return {
+    PENDIENTE: { etiqueta: "Pendiente de respuesta", clase: "en-mision" },
+    ACEPTADA: { etiqueta: "Aceptada", clase: "disponible" },
+    RECHAZADA: { etiqueta: "Rechazada", clase: "fuera-servicio" },
+  }[estado] || { etiqueta: estado || "-", clase: "mantenimiento" };
+}
+
 export function estadoAsignacion(estado) {
   return ESTADOS_ASIGNACION[estado] || { etiqueta: estado || "-", clase: "liberada" };
 }

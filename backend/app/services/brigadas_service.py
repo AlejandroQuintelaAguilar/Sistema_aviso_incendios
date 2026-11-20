@@ -6,7 +6,7 @@ y se cambia `estado_asignacion` al confirmar la recepción, sin crear filas.
 
 Los estados son los valores exactos de los CHECK de la base de datos:
 - brigadas.estado: ACTIVA, EN_OPERACION, DESCANSO, DISUELTA
-- brigada_miembros.estado: ACTIVO, INACTIVO
+- brigada_miembros.estado: ACTIVO, INACTIVO, PENDIENTE, RECHAZADA
 - incidente_brigadas.estado_asignacion: ASIGNADA, EN_CAMINO, EN_SITIO, LIBERADA
 """
 
@@ -18,14 +18,20 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.database import db
-from app.models.brigada import Brigada, BrigadaMiembro
+from app.models.brigada import Brigada, BrigadaMiembro, NotificacionBrigada
 from app.models.estacion import Estacion
 from app.models.usuario import Persona, Usuario
-from app.views.brigadas_view import bombero_a_dict, brigada_a_dict, miembro_a_dict
+from app.views.brigadas_view import (
+    bombero_a_dict,
+    brigada_a_dict,
+    miembro_a_dict,
+    notificacion_a_dict,
+)
 
 ESTADOS_BRIGADA = ("ACTIVA", "EN_OPERACION", "DESCANSO", "DISUELTA")
 ROLES_BRIGADA = ("JEFE_CUADRILLA", "BOMBERO", "ESPECIALISTA", "PARAMEDICO")
-ESTADOS_MIEMBRO = ("ACTIVO", "INACTIVO")
+ESTADOS_MIEMBRO = ("ACTIVO", "INACTIVO", "PENDIENTE", "RECHAZADA")
+ESTADOS_NOTIFICACION = ("PENDIENTE", "ACEPTADA", "RECHAZADA")
 ESTADOS_CON_MOTIVO = ("DESCANSO", "DISUELTA")
 ASIGNACIONES_ACTIVAS = ("ASIGNADA", "EN_CAMINO", "EN_SITIO")
 MAX_MOTIVO = 500
@@ -320,6 +326,91 @@ def reactivar_brigada(id_brigada, data, usuario):
     return cambiar_estado(id_brigada, datos, usuario)
 
 
+def mis_notificaciones(usuario):
+    """Invitaciones entregadas al bombero en sesión, con su respuesta."""
+    notificaciones = (
+        NotificacionBrigada.query.filter_by(id_persona=usuario.persona.id_persona)
+        .order_by(NotificacionBrigada.fecha_creacion.desc())
+        .all()
+    )
+    if not notificaciones:
+        return []
+    ids = [n.id_brigada for n in notificaciones]
+    brigadas = {
+        b.id_brigada: b
+        for b in Brigada.query.filter(Brigada.id_brigada.in_(ids)).all()
+    }
+    return [
+        notificacion_a_dict(n, brigadas.get(n.id_brigada)) for n in notificaciones
+    ]
+
+
+def responder_notificacion(id_notificacion, data, usuario):
+    """CU-16: el bombero acepta o rechaza la invitación a una brigada."""
+    notificacion = db.session.get(NotificacionBrigada, id_notificacion)
+    if notificacion is None:
+        raise ErrorModulo("La notificación no existe", codigo=404)
+    if notificacion.id_persona != usuario.persona.id_persona:
+        raise ErrorModulo("Esta notificación no te pertenece", codigo=403)
+    if notificacion.estado != "PENDIENTE":
+        raise ErrorModulo("La notificación ya fue respondida", "estado")
+    if not isinstance(data, dict):
+        raise ErrorModulo("Los datos de la respuesta no son válidos")
+
+    respuesta = str(data.get("respuesta", "")).strip().upper()
+    if respuesta not in ("ACEPTAR", "RECHAZAR"):
+        raise ErrorModulo("Respuesta: elige ACEPTAR o RECHAZAR", "respuesta")
+
+    motivo = data.get("motivo") or ""
+    if not isinstance(motivo, str):
+        raise ErrorModulo("Motivo: debe ser texto", "motivo")
+    motivo = motivo.strip()
+    if len(motivo) > MAX_MOTIVO:
+        raise ErrorModulo(f"Motivo: admite como máximo {MAX_MOTIVO} caracteres", "motivo")
+    if respuesta == "RECHAZAR" and not motivo:
+        raise ErrorModulo("Motivo: es obligatorio cuando rechazas una invitación", "motivo")
+
+    integrante = BrigadaMiembro.query.filter_by(
+        id_brigada=notificacion.id_brigada, id_persona=notificacion.id_persona
+    ).first()
+    if integrante is None:
+        raise ErrorModulo("La invitación ya no existe", codigo=404)
+
+    if respuesta == "ACEPTAR":
+        otra = db.session.execute(
+            text(
+                "select id_brigada from brigada_miembros "
+                "where id_persona = :persona and estado = 'ACTIVO' "
+                "and id_brigada <> :brigada"
+            ),
+            {"persona": notificacion.id_persona, "brigada": notificacion.id_brigada},
+        ).first()
+        if otra is not None:
+            raise ErrorModulo("Ya perteneces a otra brigada activa", codigo=409)
+        integrante.estado = "ACTIVO"
+        notificacion.estado = "ACEPTADA"
+        mensaje = "Invitación aceptada: ahora eres integrante activo de la brigada"
+    else:
+        integrante.estado = "RECHAZADA"
+        notificacion.estado = "RECHAZADA"
+        notificacion.motivo_rechazo = motivo
+        mensaje = "Invitación rechazada. Se registró tu motivo"
+
+    notificacion.fecha_respuesta = db.func.now()
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise ErrorModulo("No se pudo registrar tu respuesta. Intenta de nuevo", codigo=500)
+
+    brigada = db.session.get(Brigada, notificacion.id_brigada)
+    return {
+        "mensaje": f"{mensaje} · {brigada.nombre if brigada else ''}".strip(),
+        "notificacion": notificacion_a_dict(notificacion, brigada),
+        "estado_miembro": integrante.estado,
+    }
+
+
 def mis_brigadas(usuario):
     """Vista de solo lectura: brigadas activas a las que pertenece el bombero."""
     miembros = (
@@ -389,7 +480,10 @@ def bomberos_disponibles():
     ocupados = {
         fila[0]
         for fila in db.session.execute(
-            text("select id_persona from brigada_miembros where estado = 'ACTIVO'")
+            text(
+                "select id_persona from brigada_miembros "
+                "where estado in ('ACTIVO', 'PENDIENTE')"
+            )
         ).fetchall()
     }
     candidatos = (
@@ -408,7 +502,7 @@ def bomberos_disponibles():
 
 
 def asignar_miembros(id_brigada, data, usuario):
-    """CU-07: asignar bomberos a una brigada y notificar internamente."""
+    """CU-07: invitar bomberos y entregarles una notificación respondible."""
     brigada = _brigada_desde(id_brigada)
     if brigada.estado == "DISUELTA":
         raise ErrorModulo("No se pueden asignar bomberos a una brigada disuelta", "id_brigada")
@@ -419,18 +513,17 @@ def asignar_miembros(id_brigada, data, usuario):
     if not isinstance(miembros, list) or not miembros:
         raise ErrorModulo("Selecciona al menos un bombero", "miembros")
 
-    # id_persona -> id_brigada de las pertenencias activas.
+    # Activas o pendientes bloquean una nueva invitación; rechazadas no.
     ocupados = {
         fila[0]: fila[1]
         for fila in db.session.execute(
             text(
                 "select id_persona, id_brigada from brigada_miembros "
-                "where estado = 'ACTIVO'"
+                "where estado in ('ACTIVO', 'PENDIENTE')"
             )
         ).fetchall()
     }
-    nuevos = []
-    reincorporados = []
+    invitaciones = []
     vistos = set()
     for item in miembros:
         if not isinstance(item, dict):
@@ -449,49 +542,61 @@ def asignar_miembros(id_brigada, data, usuario):
         if candidato.estado != "ACTIVO":
             raise ErrorModulo("El bombero seleccionado no está activo", "miembros")
         if ocupados.get(id_persona) == id_brigada:
-            raise ErrorModulo("El bombero ya pertenece a esta brigada", "miembros")
+            raise ErrorModulo(
+                "El bombero ya está asignado o tiene una invitación pendiente en esta brigada",
+                "miembros",
+            )
         if id_persona in ocupados:
             raise ErrorModulo("El bombero ya está asignado a otra brigada activa", "miembros")
 
         rol = normalizar_rol(item.get("rol_en_brigada"))
-        # El UNIQUE (id_brigada, id_persona) impide insertar una fila nueva
-        # cuando el bombero ya estuvo aquí: se reactiva la fila existente.
         integrante = BrigadaMiembro.query.filter_by(
             id_brigada=id_brigada, id_persona=id_persona
         ).first()
         if integrante is not None:
-            integrante.estado = "ACTIVO"
+            integrante.estado = "PENDIENTE"
             integrante.rol_en_brigada = rol
             integrante.fecha_incorporacion = date.today()
-            reincorporados.append(integrante)
         else:
-            nuevos.append(
-                BrigadaMiembro(
-                    id_brigada=id_brigada,
-                    id_persona=id_persona,
-                    rol_en_brigada=rol,
-                    fecha_incorporacion=date.today(),
-                    estado="ACTIVO",
-                )
+            integrante = BrigadaMiembro(
+                id_brigada=id_brigada,
+                id_persona=id_persona,
+                rol_en_brigada=rol,
+                fecha_incorporacion=date.today(),
+                estado="PENDIENTE",
             )
+            db.session.add(integrante)
+        invitaciones.append((integrante, candidato, rol))
         ocupados[id_persona] = id_brigada
 
-    for integrante in nuevos:
-        db.session.add(integrante)
+    etiqueta_rol = {
+        "JEFE_CUADRILLA": "Jefe de cuadrilla",
+        "BOMBERO": "Bombero",
+        "ESPECIALISTA": "Especialista",
+        "PARAMEDICO": "Paramédico",
+    }
     try:
+        db.session.flush()
+        for integrante, candidato, rol in invitaciones:
+            db.session.add(
+                NotificacionBrigada(
+                    id_brigada=id_brigada,
+                    id_persona=integrante.id_persona,
+                    mensaje=(
+                        f"Fuiste invitado a formar parte de {brigada.nombre} "
+                        f"como {etiqueta_rol.get(rol, rol)}. "
+                        "Revisa la invitación y acepta o rechaza."
+                    ),
+                )
+            )
         db.session.commit()
     except SQLAlchemyError:
         db.session.rollback()
-        raise ErrorModulo("No se pudo guardar la asignación. Intenta de nuevo", codigo=500)
+        raise ErrorModulo("No se pudo enviar la invitación. Intenta de nuevo", codigo=500)
 
-    asignados = reincorporados + nuevos
-    ids = [i.id_persona for i in asignados]
+    ids = [i.id_persona for i, _, _ in invitaciones]
     usuarios_asignados = Usuario.query.filter(Usuario.id_persona.in_(ids)).all()
     por_persona = {u.id_persona: u for u in usuarios_asignados}
-    nombres = [
-        f"{u.persona.nombres} {u.persona.apellidos}".strip()
-        for u in usuarios_asignados
-    ]
     return {
         "asignados": [
             miembro_a_dict(
@@ -500,12 +605,16 @@ def asignar_miembros(id_brigada, data, usuario):
                 nombre_usuario=por_persona[integrante.id_persona].nombre_usuario,
                 rol_global=por_persona[integrante.id_persona].rol.nombre_rol,
             )
-            for integrante in asignados
+            for integrante, _, _ in invitaciones
         ],
         "notificacion": {
             "canal": "interno",
-            "integrantes": len(nombres),
-            "nombres": nombres,
+            "estado": "PENDIENTE",
+            "integrantes": len(usuarios_asignados),
+            "nombres": [
+                f"{u.persona.nombres} {u.persona.apellidos}".strip()
+                for u in usuarios_asignados
+            ],
         },
     }
 

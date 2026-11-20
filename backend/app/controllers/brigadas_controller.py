@@ -101,6 +101,22 @@ def reactivar(id_brigada):
     return jsonify({"mensaje": "Brigada reactivada correctamente", "brigada": brigada})
 
 
+def mis_notificaciones():
+    """CU-16: bandeja de invitaciones del bombero en sesión."""
+    return jsonify(brigadas_service.mis_notificaciones(g.usuario))
+
+
+def responder_notificacion(id_notificacion):
+    """CU-16: aceptar o rechazar una invitación."""
+    try:
+        resultado = brigadas_service.responder_notificacion(
+            id_notificacion, _datos(), g.usuario
+        )
+    except ErrorModulo as exc:
+        return _error(exc)
+    return jsonify(resultado)
+
+
 def mis_brigadas():
     """CU-05/CU-06: solo lectura, el bombero ve dónde está asignado."""
     return jsonify(brigadas_service.mis_brigadas(g.usuario))

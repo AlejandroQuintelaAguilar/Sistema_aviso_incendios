@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Icono from "../layout/IconosVigia";
 import * as brigadasService from "../../services/brigadasService";
-import { ROLES_BRIGADA, etiquetaRolBrigada } from "./estadosBrigada";
+import { ROLES_BRIGADA, estadoMiembro, etiquetaRolBrigada } from "./estadosBrigada";
 
 export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCambios }) {
   const [integrantes, setIntegrantes] = useState([]);
@@ -122,7 +122,7 @@ export default function ModalGestionBrigada({ brigada, esGestor, onCerrar, onCam
                           <strong>{miembro.nombres} {miembro.apellidos}</strong>
                           <small>
                             {etiquetaRolBrigada(miembro.rol_en_brigada)} · {miembro.nombre_usuario || "-"}
-                            {miembro.estado === "ACTIVO" ? "" : " · INACTIVO"}
+                            {" · "}{estadoMiembro(miembro.estado).etiqueta}
                           </small>
                         </span>
                         {esGestor && miembro.estado === "ACTIVO" && (

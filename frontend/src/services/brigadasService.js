@@ -50,6 +50,17 @@ export function reactivar(idBrigada, motivo) {
   });
 }
 
+export function misNotificaciones() {
+  return api("/brigadas/mis-notificaciones");
+}
+
+export function responderNotificacion(idNotificacion, respuesta, motivo) {
+  return api(`/brigadas/notificaciones/${idNotificacion}/responder`, {
+    method: "PATCH",
+    body: { respuesta, motivo },
+  });
+}
+
 export function misBrigadas() {
   return api("/brigadas/mis-brigadas");
 }
