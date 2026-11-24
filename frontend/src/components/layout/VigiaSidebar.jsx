@@ -28,6 +28,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
   const rol = usuario?.rol;
   const nombre = usuario?.persona?.nombres || usuario?.nombre_usuario || "Operador";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "V";
+  const enDashboard = pathname === "/dashboard";
   const enRecursos = pathname.startsWith("/recursos");
   const enBrigadas = pathname.startsWith("/brigadas");
   const enZonas = pathname.startsWith("/zonas-riesgo");
@@ -90,7 +91,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
         aria-label="Navegación principal"
       >
         <div className="vg-sidebar-cabecera">
-          <Link to="/recursos" className="vg-marca" onClick={() => setSidebarAbierto(false)}>
+          <Link to="/dashboard" className="vg-marca" onClick={() => setSidebarAbierto(false)}>
             <span className="vg-marca-icono"><Icono nombre="llama" tamano={22} /></span>
             <span className="vg-marca-texto">
               <strong>Vigía Territorial</strong>
@@ -110,6 +111,19 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
         <nav className="vg-nav" aria-label="Módulos del sistema">
           <p className="vg-nav-titulo">Módulos</p>
           <ul className="vg-nav-lista">
+            <li>
+              <Link
+                to="/dashboard"
+                className={`vg-nav-enlace${enDashboard ? " activo" : ""}`}
+                onClick={() => setSidebarAbierto(false)}
+                title={colapsado ? "Panel principal" : undefined}
+                aria-current={enDashboard ? "page" : undefined}
+              >
+                <span className="vg-nav-numero">0</span>
+                <Icono nombre="panelLateral" tamano={18} />
+                <span className="vg-nav-texto">Panel principal</span>
+              </Link>
+            </li>
             {OPERATIVOS.includes(rol) && (
               <li>
                 <Link

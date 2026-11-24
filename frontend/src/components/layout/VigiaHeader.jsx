@@ -3,6 +3,7 @@ import Icono from "./IconosVigia";
 import { useVigia } from "../../context/VigiaContext";
 
 const TITULOS = [
+  ["/dashboard", "Panel principal"],
   ["/recursos/estaciones/nueva", "Nueva Estación"],
   ["/recursos/unidades/nueva", "Nueva Unidad o Recurso"],
   ["/recursos/consultar", "Consulta detallada"],
