@@ -16,6 +16,7 @@ import FrmRegBrigada from "../pages/brigadas/frmRegBrigada";
 import FrmEditarBrigada from "../pages/brigadas/frmEditarBrigada";
 import ConsultaBrigadasPage from "../pages/brigadas/ConsultaBrigadasPage";
 import IncendiosAsignadosPage from "../pages/brigadas/IncendiosAsignadosPage";
+import ZonasRiesgoPage from "../pages/zonas/ZonasRiesgoPage";
 
 function PantallaCarga() {
   return <p className="cuenta estado-pantalla">Comprobando sesión…</p>;
@@ -70,6 +71,7 @@ export default function AppRoutes() {
       <Route path="/brigadas/:idBrigada/editar" element={<RutaPrivada soloAdmin><FrmEditarBrigada /></RutaPrivada>} />
       <Route path="/brigadas/consultar" element={<RutaPrivada roles={ROLES_OPERATIVOS}><ConsultaBrigadasPage /></RutaPrivada>} />
       <Route path="/brigadas/incendios" element={<RutaPrivada roles={ROLES_OPERATIVOS}><IncendiosAsignadosPage /></RutaPrivada>} />
+      <Route path="/zonas-riesgo" element={<RutaPrivada roles={[...ROLES_OPERATIVOS, "CIUDADANO"]}><ZonasRiesgoPage /></RutaPrivada>} />
 
       <Route path="/usuarios" element={<RutaPrivada soloAdmin><UsuariosPage /></RutaPrivada>} />
 

@@ -32,12 +32,18 @@ def create_app():
     from app.routes.estaciones_routes import estaciones_bp
     from app.routes.recursos_routes import recursos_bp
     from app.routes.usuarios_routes import usuarios_bp
+    from app.routes.zona_riesgo_routes import zona_riesgo_bp
+    from app.routes.solicitudes_zona_routes import solicitudes_zona_bp
+    from app.routes.inspecciones_routes import inspecciones_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(usuarios_bp, url_prefix="/api/usuarios")
     app.register_blueprint(estaciones_bp, url_prefix="/api/estaciones")
     app.register_blueprint(recursos_bp, url_prefix="/api/recursos")
     app.register_blueprint(brigadas_bp, url_prefix="/api/brigadas")
+    app.register_blueprint(zona_riesgo_bp, url_prefix="/api/zonas-riesgo")
+    app.register_blueprint(solicitudes_zona_bp, url_prefix="/api/solicitudes-zonas")
+    app.register_blueprint(inspecciones_bp, url_prefix="/api/inspecciones")
 
     @app.get("/api/salud")
     def salud():

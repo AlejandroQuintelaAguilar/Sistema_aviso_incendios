@@ -3,7 +3,7 @@
 Proyecto académico para la gestión de incendios forestales. Backend **Flask + PostgreSQL**,
 frontend **React**, arquitectura **MVC** y desarrollo por iteraciones.
 
-> **Estado actual:** los módulos activos son **Usuarios** (acceso, registro de ciudadano, sesión y administración de cuentas) y **Recursos y Estaciones** (alta y consulta de estaciones, unidades y recursos). El resto de la interfaz se retiró de esta iteración; la guía corta para continuar está en `GUIA_GRUPOS.md`.
+> **Estado actual:** están integrados **Usuarios**, **Recursos y Estaciones**, **Brigadas** y **Zonas de Riesgo**. La iteración de zonas incluye consulta, solicitudes ciudadanas, evaluación administrativa, inspecciones, mapa, modificación, cambios de estado e historial. El alcance y la limitación de dibujo del polígono están en `docs/iteraciones/iteracion-4-zonas-riesgo.md`.
 
 ## Estructura
 
@@ -49,6 +49,8 @@ sistema_incendios/
 
 1. Gestión de usuarios
 2. Gestión de recursos y estaciones
+3. Gestión de brigadas
+4. Gestión de zonas de riesgo
 
 ## Instalación
 
@@ -87,6 +89,10 @@ La columna `foto_url` de `estaciones` ya existe en Neon; el cambio aditivo está
 `backend/migrations/002_agregar_foto_estaciones.sql`. Las fotos se guardan como data URL WebP en
 la base de datos y se sirven por `GET /api/estaciones/<id>/foto` con autenticación. Los listados
 solo devuelven `tiene_foto` para no leer el blob en cada consulta.
+
+Para agregar las tablas y columnas requeridas por Zonas de Riesgo, ejecutar
+`backend/migrations/005_zonas_riesgo.sql` en la base del proyecto. Es seguro volver a ejecutarla
+si una ejecución anterior se detuvo por un error.
 
 ## Ramas e iteraciones
 
