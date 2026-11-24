@@ -46,7 +46,7 @@ function RutaPublica({ children }) {
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/incidentes" replace />} />
       <Route element={<RutaPublica><MarcoAcceso /></RutaPublica>}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/registro" element={<RegistroPage />} />
