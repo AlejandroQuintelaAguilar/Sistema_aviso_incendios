@@ -17,6 +17,7 @@ import FrmEditarBrigada from "../pages/brigadas/frmEditarBrigada";
 import ConsultaBrigadasPage from "../pages/brigadas/ConsultaBrigadasPage";
 import IncendiosAsignadosPage from "../pages/brigadas/IncendiosAsignadosPage";
 import ZonasRiesgoPage from "../pages/zonas/ZonasRiesgoPage";
+import { IncidentesPage } from "../pages/incidentes/IncidentesPage";
 
 function PantallaCarga() {
   return <p className="cuenta estado-pantalla">Comprobando sesión…</p>;
@@ -56,7 +57,7 @@ export default function AppRoutes() {
       </Route>
       <Route path="/cuenta" element={<RutaPrivada><CuentaPage /></RutaPrivada>} />
 
-      {/* Módulos activos: Recursos y Estaciones, Brigadas y Usuarios. */}
+      {/* Módulos activos: Recursos y Estaciones, Brigadas, Zonas de Riesgo, Incidentes y Usuarios. */}
       <Route
         path="/recursos"
         element={<RutaPrivada roles={ROLES_OPERATIVOS}><RecursosEstacionesPage /></RutaPrivada>}
@@ -71,9 +72,13 @@ export default function AppRoutes() {
       <Route path="/brigadas/:idBrigada/editar" element={<RutaPrivada soloAdmin><FrmEditarBrigada /></RutaPrivada>} />
       <Route path="/brigadas/consultar" element={<RutaPrivada roles={ROLES_OPERATIVOS}><ConsultaBrigadasPage /></RutaPrivada>} />
       <Route path="/brigadas/incendios" element={<RutaPrivada roles={ROLES_OPERATIVOS}><IncendiosAsignadosPage /></RutaPrivada>} />
+
+      {/* Iteración 4: Gestión de Zonas de Riesgo. */}
       <Route path="/zonas-riesgo" element={<RutaPrivada roles={[...ROLES_OPERATIVOS, "CIUDADANO"]}><ZonasRiesgoPage /></RutaPrivada>} />
 
       <Route path="/usuarios" element={<RutaPrivada soloAdmin><UsuariosPage /></RutaPrivada>} />
+      <Route path="/incidentes" element={<IncidentesPage />} />
+      <Route path="/emergencia" element={<IncidentesPage />} />
 
       <Route path="*" element={<Navigate to="/recursos" replace />} />
     </Routes>

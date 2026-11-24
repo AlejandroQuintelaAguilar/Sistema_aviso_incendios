@@ -1,0 +1,91 @@
+/* Submenú desplegable del módulo Incidentes dentro de VigiaSidebar */
+.inc-nav-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inc-nav-chevron {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.inc-nav-chevron.abierto {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+.inc-nav-submenu {
+  list-style: none;
+  margin: 4px 0 6px 18px;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--vg-borde, #e5e5e5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inc-nav-subitem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--vg-texto-suave, #6e6e6e);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.inc-nav-subitem:hover {
+  background: var(--vg-fondo, #f7f7f7);
+  color: var(--vg-texto, #1a1a1a);
+}
+
+.inc-nav-subitem.activo {
+  background: rgba(217, 93, 30, 0.12);
+  color: #b84a14;
+}
+
+.inc-nav-subtexto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inc-nav-badge {
+  flex: none;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--vg-input, #efefef);
+  color: var(--vg-texto, #1a1a1a);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.inc-nav-subitem.activo .inc-nav-badge {
+  background: var(--vg-fuego, #d95d1e);
+  color: #ffffff;
+}
+
+.vg-sidebar-colapsado .inc-nav-submenu,
+.vg-sidebar-colapsado .inc-nav-chevron {
+  display: none;
+}

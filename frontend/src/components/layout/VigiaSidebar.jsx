@@ -1,6 +1,9 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Icono from "./IconosVigia";
+import { useOperacion } from "../../context/OperacionContext";
 import { useVigia } from "../../context/VigiaContext";
+import "../../styles/incidentes-nav.css";
 
 const OPERATIVOS = ["ADMINISTRADOR", "OPERADOR", "BOMBERO"];
 
@@ -11,15 +14,63 @@ const ETIQUETA_ROL = {
   CIUDADANO: "Ciudadano",
 };
 
+const SUBMENU_INCIDENTES = [
+  { id: "mapa_alertas", label: "Mapa y Alertas", icono: "ubicacion" },
+  { id: "avisos", label: "Triage de Avisos", icono: "alerta", ocultarBombero: true },
+  { id: "incidentes", label: "Gestión de Incidentes", icono: "incidente" },
+  { id: "detalle", label: "Despacho e Informes", icono: "automovil" },
+];
+
 export default function VigiaSidebar({ usuario, pathname, onSalir }) {
   const { sidebarAbierto, setSidebarAbierto, colapsado, setColapsado } = useVigia();
+  const { rolActivo, vistaIncidente, setVistaIncidente, navBadges } = useOperacion();
+  const navigate = useNavigate();
   const rol = usuario?.rol;
   const nombre = usuario?.persona?.nombres || usuario?.nombre_usuario || "Operador";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "V";
   const enRecursos = pathname.startsWith("/recursos");
   const enBrigadas = pathname.startsWith("/brigadas");
   const enZonas = pathname.startsWith("/zonas-riesgo");
+  const enIncidentes =
+    pathname.startsWith("/incidentes") || pathname.startsWith("/emergencia");
   const enUsuarios = pathname.startsWith("/usuarios");
+  const esCiudadanoVista = rol === "CIUDADANO" || rolActivo === "CIUDADANO";
+  const esBomberoVista = rol === "BOMBERO" || rolActivo === "BOMBERO";
+
+  const [incidentesAbierto, setIncidentesAbierto] = useState(enIncidentes);
+
+  useEffect(() => {
+    if (enIncidentes) {
+      setIncidentesAbierto(true);
+    }
+  }, [enIncidentes]);
+
+  const itemsSubmenuIncidentes = SUBMENU_INCIDENTES.filter(
+    (item) => !(item.ocultarBombero && esBomberoVista)
+  );
+
+  function handleClickIncidentes() {
+    if (!enIncidentes) {
+      setIncidentesAbierto(true);
+      navigate("/incidentes");
+      if (colapsado) setSidebarAbierto(false);
+      return;
+    }
+    if (colapsado) {
+      setColapsado(false);
+      setIncidentesAbierto(true);
+      return;
+    }
+    setIncidentesAbierto((prev) => !prev);
+  }
+
+  function handleSeleccionarSubvista(idVista) {
+    setVistaIncidente(idVista);
+    if (!enIncidentes) {
+      navigate("/incidentes");
+    }
+    setSidebarAbierto(false);
+  }
 
   return (
     <>
@@ -74,15 +125,6 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                 </Link>
               </li>
             )}
-            {(OPERATIVOS.includes(rol) || rol === "CIUDADANO") && (
-              <li>
-                <Link to="/zonas-riesgo" className={`vg-nav-enlace${enZonas ? " activo" : ""}`} onClick={() => setSidebarAbierto(false)} title={colapsado ? "Zonas de Riesgo" : undefined} aria-current={enZonas ? "page" : undefined}>
-                  <span className="vg-nav-numero">3</span>
-                  <Icono nombre="estacion" tamano={18} />
-                  <span className="vg-nav-texto">Zonas de Riesgo</span>
-                </Link>
-              </li>
-            )}
             {OPERATIVOS.includes(rol) && (
               <li>
                 <Link
@@ -98,6 +140,87 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                 </Link>
               </li>
             )}
+            {(OPERATIVOS.includes(rol) || rol === "CIUDADANO") && (
+              <li>
+                <Link
+                  to="/zonas-riesgo"
+                  className={`vg-nav-enlace${enZonas ? " activo" : ""}`}
+                  onClick={() => setSidebarAbierto(false)}
+                  title={colapsado ? "Zonas de Riesgo" : undefined}
+                  aria-current={enZonas ? "page" : undefined}
+                >
+                  <span className="vg-nav-numero">
+                    {OPERATIVOS.includes(rol) ? "3" : "1"}
+                  </span>
+                  <Icono nombre="ubicacion" tamano={18} />
+                  <span className="vg-nav-texto">Zonas de Riesgo</span>
+                </Link>
+              </li>
+            )}
+            <li>
+              {esCiudadanoVista ? (
+                <Link
+                  to="/incidentes"
+                  className={`vg-nav-enlace${enIncidentes ? " activo" : ""}`}
+                  onClick={() => setSidebarAbierto(false)}
+                  title={colapsado ? "Reportar Incendio" : undefined}
+                  aria-current={enIncidentes ? "page" : undefined}
+                >
+                  <span className="vg-nav-numero">
+                    {OPERATIVOS.includes(rol) ? "4" : "2"}
+                  </span>
+                  <Icono nombre="llama" tamano={18} />
+                  <span className="vg-nav-texto">Reportar Incendio</span>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={`vg-nav-enlace inc-nav-toggle${enIncidentes ? " activo" : ""}`}
+                    onClick={handleClickIncidentes}
+                    title={colapsado ? "Incidentes" : undefined}
+                    aria-expanded={incidentesAbierto}
+                  >
+                    <span className="vg-nav-numero">
+                      {OPERATIVOS.includes(rol) ? "4" : "2"}
+                    </span>
+                    <Icono nombre="llama" tamano={18} />
+                    <span className="vg-nav-texto">Incidentes</span>
+                    <span
+                      className={`inc-nav-chevron${incidentesAbierto ? " abierto" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <Icono nombre="chevronDerecha" tamano={14} />
+                    </span>
+                  </button>
+
+                  {incidentesAbierto && (
+                    <ul className="inc-nav-submenu" aria-label="Vistas de Incidentes">
+                      {itemsSubmenuIncidentes.map((item) => {
+                        const activo = enIncidentes && vistaIncidente === item.id;
+                        const badge = navBadges?.[item.id];
+                        return (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              className={`inc-nav-subitem${activo ? " activo" : ""}`}
+                              onClick={() => handleSeleccionarSubvista(item.id)}
+                              aria-current={activo ? "page" : undefined}
+                            >
+                              <Icono nombre={item.icono} tamano={15} />
+                              <span className="inc-nav-subtexto">{item.label}</span>
+                              {badge != null && (
+                                <span className="inc-nav-badge">{badge}</span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              )}
+            </li>
           </ul>
         </nav>
 
@@ -124,7 +247,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                     title={colapsado ? "Usuarios" : undefined}
                     aria-current={enUsuarios ? "page" : undefined}
                   >
-                    <span className="vg-nav-numero">4</span>
+                    <span className="vg-nav-numero">5</span>
                     <Icono nombre="usuario" tamano={18} />
                     <span className="vg-nav-texto">Usuarios</span>
                   </Link>

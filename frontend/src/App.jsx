@@ -1,4 +1,5 @@
 import { AuthProvider } from "./context/AuthContext";
+import { OperacionProvider } from "./context/OperacionContext";
 import { VigiaProvider } from "./context/VigiaContext";
 import { useRefreshSesion } from "./hooks/useRefreshSesion";
 import AppRoutes from "./routes/AppRoutes";
@@ -13,7 +14,9 @@ export default function App() {
     <AuthProvider>
       <RefrescoDeSesion />
       <VigiaProvider>
-        <AppRoutes />
+        <OperacionProvider>
+          <AppRoutes />
+        </OperacionProvider>
       </VigiaProvider>
     </AuthProvider>
   );
