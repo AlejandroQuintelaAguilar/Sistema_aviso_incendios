@@ -76,8 +76,8 @@ class AlertasService:
             
         # Buscamos el ID del ciudadano usando SQL directo para evitar errores de importación
         try:
-            query = text(f"SELECT id_ciudadano FROM avisos_incendio WHERE id_aviso = {incidente.id_aviso}")
-            resultado = db.session.execute(query).fetchone()
+            query = text("SELECT id_ciudadano FROM avisos_incendio WHERE id_aviso = :id_aviso")
+            resultado = db.session.execute(query, {"id_aviso": incidente.id_aviso}).fetchone()
             
             if resultado and resultado[0]:
                 ids_destinatarios = [resultado[0]]
@@ -109,8 +109,8 @@ class AlertasService:
             return None
             
         try:
-            query = text(f"SELECT id_ciudadano FROM avisos_incendio WHERE id_aviso = {incidente.id_aviso}")
-            resultado = db.session.execute(query).fetchone()
+            query = text("SELECT id_ciudadano FROM avisos_incendio WHERE id_aviso = :id_aviso")
+            resultado = db.session.execute(query, {"id_aviso": incidente.id_aviso}).fetchone()
             
             if resultado and resultado[0]:
                 ids_destinatarios = [resultado[0]]
