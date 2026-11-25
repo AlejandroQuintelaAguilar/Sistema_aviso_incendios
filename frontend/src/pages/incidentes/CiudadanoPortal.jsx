@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { TacticalMap } from '../../components/common/TacticalMap';
+import { limpiarUbicacionCiudadano } from '../../utils/tacticalMapHelpers';
 import { MensajeIncendioPanel } from './MensajeIncendioPanel';
 
 const DESCRIPCIONES_GENERICAS = new Set([
@@ -170,32 +171,26 @@ export function CiudadanoPortal({
 
   function handlePointPicked(pt) {
     setGpsFallback(false);
-    setGpsNotice(
-      `Ubicación marcada en mapa: ${Number(pt.lat).toFixed(4)}, ${Number(pt.lng).toFixed(4)}`
-    );
+    setGpsNotice(pt ? 'Ubicación marcada en el mapa.' : '');
     onGpsCaptured?.(pt);
   }
 
   async function handleClickReportar() {
     setGpsBusy(true);
     setGpsFallback(false);
-    setGpsNotice('Obteniendo ubicación GPS...');
+    setGpsNotice('Obteniendo tu ubicación...');
     let coords = pickedPoint;
     if (!coords) {
       try {
         const gps = await getBrowserGps();
         coords = { lat: gps.lat, lng: gps.lng };
         setGpsFallback(false);
-        setGpsNotice(
-          `GPS capturado: ${coords.lat}, ${coords.lng}${
-            gps.accuracy ? ` (±${gps.accuracy} m)` : ''
-          }`
-        );
+        setGpsNotice('');
       } catch {
         coords = { lat: -17.314, lng: -66.181 };
         setGpsFallback(true);
         setGpsNotice(
-          `GPS no disponible o permiso denegado; se envió con ubicación referencial (${coords.lat}, ${coords.lng}).`
+          'No pudimos obtener tu ubicación exacta; se envió una ubicación aproximada.'
         );
       }
       onGpsCaptured?.(coords);
@@ -287,7 +282,7 @@ export function CiudadanoPortal({
     return (
       <div className="citizen-identity-row">
         <span className="citizen-identity-pill is-anon">
-          EMERGENCIAS FORESTALES · MODO SOS ANÓNIMO
+          EMERGENCIA · MODO SOS ANÓNIMO
           {usuarioAutenticado ? ' · VISTA PREVIA' : ''}
         </span>
       </div>
@@ -357,10 +352,10 @@ export function CiudadanoPortal({
     return (
       <div className="citizen-nearby-box" role="status">
         <strong>
-          ℹ️ La central ya recibió otros {otrosCercanos.length} reporte(s) en este sector (≤ 2 km)
+          ℹ️ La central ya recibió otros {otrosCercanos.length} reporte(s) en esta zona
         </strong>
         <span>
-          Puedes sumar tu fotografía en vivo o dictar los detalles por voz para priorizar el incidente sin generar despachos duplicados.
+          Puedes sumar tu fotografía en vivo o dictar los detalles por voz para ayudar a los bomberos.
         </span>
       </div>
     );
@@ -406,20 +401,13 @@ export function CiudadanoPortal({
 
           {otraUbicacionAbierta && (
             <form className="citizen-other-loc-box" onSubmit={handleReportarOtraUbicacion}>
-              <div className="inline-form">
-                <input
-                  type="text"
-                  placeholder="Referencia del lugar (opcional si marcas en mapa)"
-                  value={otraUbicacionTexto}
-                  onChange={(e) => setOtraUbicacionTexto(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={loading || (!pickedPoint && !otraUbicacionTexto.trim())}
-                >
-                  🚨 Enviar en Ubicación Marcada
-                </button>
-              </div>
+              <input
+                type="text"
+                className="citizen-other-loc-input"
+                placeholder="Referencia del lugar (opcional si marcas en mapa)"
+                value={otraUbicacionTexto}
+                onChange={(e) => setOtraUbicacionTexto(e.target.value)}
+              />
               {renderNearbyAlert()}
               <TacticalMap
                 zonas={zonas}
@@ -431,6 +419,13 @@ export function CiudadanoPortal({
                 onPickPoint={handlePointPicked}
                 modoCiudadano
               />
+              <button
+                type="submit"
+                className="citizen-other-loc-submit"
+                disabled={loading || (!pickedPoint && !otraUbicacionTexto.trim())}
+              >
+                🚨 Enviar en Ubicación Marcada
+              </button>
             </form>
           )}
 
@@ -458,7 +453,7 @@ export function CiudadanoPortal({
                   >
                     <div>
                       <div>
-                        <strong>#{av.id_aviso}</strong> — {av.ubicacion}
+                        <strong>#{av.id_aviso}</strong> — {limpiarUbicacionCiudadano(av.ubicacion)}
                       </div>
                       <div className="citizen-history-meta">
                         {formatFechaCorta(av.fecha_hora)}
@@ -512,12 +507,11 @@ export function CiudadanoPortal({
             <StatusBadge value={avisoActivo.nivel_urgencia} />
           </div>
           <p className="subtitle">
-            Ubicación registrada: {avisoActivo.ubicacion}
+            Ubicación: {limpiarUbicacionCiudadano(avisoActivo.ubicacion)}
           </p>
-          {gpsNotice && <p className="banner-sub">{gpsNotice}</p>}
           {gpsFallback && !esDescartado && (
             <div className="alert-warn citizen-inline-warn">
-              Se usó GPS referencial porque el navegador no entregó tu ubicación exacta. Describe la referencia exacta en el Paso 3 o inicia un nuevo reporte marcando el punto en el mapa.
+              No pudimos obtener tu ubicación exacta. Describe la referencia del lugar en el Paso 3 o inicia un nuevo reporte marcando el punto en el mapa.
             </div>
           )}
 
@@ -525,7 +519,7 @@ export function CiudadanoPortal({
             <div className="citizen-status-track" aria-label="Seguimiento en vivo del reporte">
               <div className={`citizen-status-node ${esVerificado ? 'done' : 'active'}`}>
                 <span>{esVerificado ? '✓' : '●'}</span>
-                <span>1. Enviado (PENDIENTE)</span>
+                <span>1. Enviado</span>
               </div>
               <div
                 className={`citizen-status-node ${

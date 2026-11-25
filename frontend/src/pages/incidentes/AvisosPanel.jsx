@@ -394,7 +394,7 @@ export function AvisosPanel({
           <div>
             <h2>Consola de Triage de Avisos</h2>
             <p className="subtitle">
-              Clasifica alertas entrantes, prioriza avisos con SLA vencido o registra llamados telefónicos y radiales.
+              Clasifica alertas entrantes, prioriza avisos atrasados (+15 min) o registra llamados telefónicos y radiales.
             </p>
           </div>
           <div className="item-actions">
@@ -754,7 +754,7 @@ export function AvisosPanel({
             }`}
             onClick={() => setSoloSla((prev) => !prev)}
           >
-            ⏱ Solo SLA &gt;15m ({contadores.SLA})
+            ⏱ Solo atrasados (+15 min) ({contadores.SLA})
           </button>
 
           <select
@@ -813,7 +813,7 @@ export function AvisosPanel({
                 >
                   <div className="item-main">
                     <div className="item-title">
-                      <strong>#{aviso.id_aviso}</strong> — {aviso.ubicacion}{' '}
+                      <strong>#{aviso.id_aviso}</strong> — {aviso.ubicacion_legible || aviso.ubicacion}{' '}
                       <span className="triage-origin-chip">
                         {canal
                           ? aviso.id_ciudadano
@@ -843,7 +843,9 @@ export function AvisosPanel({
                             onClick={() =>
                               setFotoAmpliada({
                                 src: aviso.foto,
-                                title: `Aviso #${aviso.id_aviso} — ${aviso.ubicacion}`,
+                                title: `Aviso #${aviso.id_aviso} — ${
+                                  aviso.ubicacion_legible || aviso.ubicacion
+                                }`,
                               })
                             }
                           />
@@ -860,7 +862,7 @@ export function AvisosPanel({
                         </span>
                       )}
                       {aviso.alerta_sla && (
-                        <span className="badge badge-danger">SLA &gt;15m</span>
+                        <span className="badge badge-danger">Atrasado (+15 min)</span>
                       )}
                       {incCercano && (
                         <span className="badge badge-warn">

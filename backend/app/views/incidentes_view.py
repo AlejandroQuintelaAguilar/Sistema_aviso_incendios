@@ -9,7 +9,7 @@ from app.models.evaluacion_dano import EvaluacionDano
 from app.models.incidente import Incidente
 from app.models.incidente_brigada import IncidenteBrigada
 from app.models.informe_bombero import InformeBombero
-from app.utils.geo_utils import extract_coordinates
+from app.utils.geo_utils import extract_coordinates, strip_coordinates_label
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -46,6 +46,7 @@ def serialize_aviso(aviso: AvisoIncendio) -> dict[str, Any]:
         "id_ciudadano": aviso.id_ciudadano,
         "fecha_hora": _iso(aviso.fecha_hora),
         "ubicacion": aviso.ubicacion,
+        "ubicacion_legible": strip_coordinates_label(aviso.ubicacion),
         "coordenadas": extract_coordinates(aviso.ubicacion),
         "descripcion": aviso.descripcion,
         "nivel_urgencia": aviso.nivel_urgencia,
@@ -66,6 +67,7 @@ def serialize_incidente(incidente: Incidente) -> dict[str, Any]:
         "id_zona": incidente.id_zona,
         "fecha_inicio": _iso(incidente.fecha_inicio),
         "ubicacion": incidente.ubicacion,
+        "ubicacion_legible": strip_coordinates_label(incidente.ubicacion),
         "coordenadas": extract_coordinates(incidente.ubicacion),
         "gravedad": incidente.gravedad,
         "estado": incidente.estado,

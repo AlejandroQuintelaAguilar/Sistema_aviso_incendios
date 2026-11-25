@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { limpiarUbicacionCiudadano } from '../../utils/tacticalMapHelpers';
 
 const URGENCIAS = ['BAJO', 'MEDIO', 'ALTO', 'CRITICO'];
 
@@ -403,7 +404,7 @@ export function MensajeIncendioPanel({
         <div className="linked-report-banner">
           <div>
             <strong>Adjuntando al Reporte #{ultimoAviso.id_aviso}</strong>
-            <span className="banner-sub"> — {ultimoAviso.ubicacion}</span>
+            <span className="banner-sub"> — {limpiarUbicacionCiudadano(ultimoAviso.ubicacion)}</span>
           </div>
           <div className="item-actions">
             <StatusBadge value={ultimoAviso.estado_aviso} />

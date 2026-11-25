@@ -29,7 +29,13 @@ from app.services.referencias_service import (
     SQLAlchemyReferenciaValidator,
     serializar_zona_enriquecida,
 )
-from app.utils.geo_utils import extract_coordinates, format_ubicacion_con_coordenadas
+from app.utils.geo_utils import (
+    extract_coordinates,
+    extract_explicit_coordinates,
+    format_ubicacion_con_coordenadas,
+    reverse_geocode_ubicacion,
+    validate_coordinates,
+)
 from app.utils.validators import (
     require_non_empty_str,
     validate_enum,
@@ -156,12 +162,6 @@ class IncidenteService:
         self._referencias = referencias or SQLAlchemyReferenciaValidator()
 
     def crear_incidente(self, data: dict[str, Any]) -> Incidente:
-        ubicacion = format_ubicacion_con_coordenadas(
-            require_non_empty_str(data, "ubicacion"),
-            data.get("lat"),
-            data.get("lng"),
-        )
-
         id_aviso = validate_optional_int(data, "id_aviso")
         aviso: AvisoIncendio | None = None
         if id_aviso is not None:
@@ -170,6 +170,48 @@ class IncidenteService:
                 raise NotFoundError(f"Aviso de incendio con id {id_aviso} no encontrado")
             if aviso.estado_aviso == "DESCARTADO":
                 raise ConflictError("No se puede crear un incidente desde un aviso DESCARTADO")
+
+        raw_ubicacion_input = data.get("ubicacion")
+        lat_val = data.get("lat")
+        lng_val = data.get("lng")
+
+        if isinstance(raw_ubicacion_input, str) and raw_ubicacion_input.strip():
+            raw_ubicacion = raw_ubicacion_input.strip()
+        elif lat_val is not None and lng_val is not None:
+            lat_f, lng_f = validate_coordinates(lat_val, lng_val)
+            direccion_real = reverse_geocode_ubicacion(lat_f, lng_f)
+            sugerida = self._referencias.sugerir_zona_cercana(lat_f, lng_f)
+
+            if direccion_real and sugerida is not None and sugerida["distancia_km"] <= 10.0:
+                if sugerida["nombre"].lower() in direccion_real.lower():
+                    raw_ubicacion = direccion_real
+                else:
+                    raw_ubicacion = f"{direccion_real} — {sugerida['nombre']}"
+            elif direccion_real:
+                raw_ubicacion = direccion_real
+            elif sugerida is not None and sugerida["distancia_km"] <= 25.0:
+                raw_ubicacion = f"Sector {sugerida['nombre']}"
+            else:
+                raw_ubicacion = "Incidente registrado en mapa"
+        else:
+            raw_ubicacion = require_non_empty_str(data, "ubicacion")
+
+        if (
+            lat_val is None
+            and lng_val is None
+            and aviso is not None
+            and extract_explicit_coordinates(raw_ubicacion) is None
+        ):
+            coords_aviso = extract_coordinates(aviso.ubicacion)
+            if coords_aviso is not None:
+                lat_val = coords_aviso["lat"]
+                lng_val = coords_aviso["lng"]
+
+        ubicacion = format_ubicacion_con_coordenadas(
+            raw_ubicacion,
+            lat_val,
+            lng_val,
+        )
 
         id_operador = validate_optional_int(data, "id_operador")
         if id_operador is not None:

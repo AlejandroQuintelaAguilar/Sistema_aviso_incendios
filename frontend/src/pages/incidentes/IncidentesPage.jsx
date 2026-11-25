@@ -428,6 +428,10 @@ export function IncidentesPage() {
         ubicacion: clasificacion?.ubicacion || aviso.ubicacion,
         gravedad: clasificacion?.gravedad || mapGravedad[aviso.nivel_urgencia] || 'MEDIA',
       };
+      if (clasificacion?.lat != null && clasificacion?.lng != null) {
+        payload.lat = clasificacion.lat;
+        payload.lng = clasificacion.lng;
+      }
       if (clasificacion && clasificacion.id_zona != null) {
         payload.id_zona = clasificacion.id_zona;
       }
@@ -441,7 +445,9 @@ export function IncidentesPage() {
   async function handleVincularAvisoAIncidente(aviso, inc) {
     await run(async () => {
       await avisosService.enviarDescripcion(aviso.id_aviso, {
-        descripcion: `Vinculado al Incidente activo #${inc.id_incidente} (${inc.ubicacion})`,
+        descripcion: `Vinculado al Incidente activo #${inc.id_incidente} (${
+          inc.ubicacion_legible || inc.ubicacion
+        })`,
         append: true,
       });
       await avisosService.cambiarEstado(aviso.id_aviso, 'ATENDIDO');
@@ -581,10 +587,10 @@ export function IncidentesPage() {
 
   async function handleCrearIncidenteDirecto(e) {
     e.preventDefault();
-    if (!ubicacion.trim()) return;
+    if (!ubicacion.trim() && !pickedPoint) return;
     await run(async () => {
       const res = await incidentesService.crear({
-        ubicacion: ubicacion.trim(),
+        ...(ubicacion.trim() ? { ubicacion: ubicacion.trim() } : {}),
         gravedad,
         id_zona: idZona ? Number(idZona) : null,
         id_operador: idOperador ? Number(idOperador) : null,
@@ -996,7 +1002,7 @@ export function IncidentesPage() {
               {alertaEntrante.nivel_urgencia})
             </strong>
             <div className="sos-incoming-sub">
-              {alertaEntrante.ubicacion}
+              {alertaEntrante.ubicacion_legible || alertaEntrante.ubicacion}
               {alertaEntrante.descripcion ? ` · ${alertaEntrante.descripcion}` : ''}
             </div>
           </div>
@@ -1062,7 +1068,7 @@ export function IncidentesPage() {
         </div>
       ) : (
       <>
-        {vistaActiva === 'mapa_alertas' ? (
+        {vistaActiva === 'mapa_alertas' && (
           <>
             <div className="re-kpis inc-kpis-bar no-print">
               <button
@@ -1095,7 +1101,7 @@ export function IncidentesPage() {
                     <small>
                       Alertas en triage
                       {(resumen?.alertas_sla_activas ?? 0) > 0
-                        ? ` · ${resumen.alertas_sla_activas} SLA`
+                        ? ` · ${resumen.alertas_sla_activas} atrasado(s)`
                         : ' →'}
                     </small>
                   </span>
@@ -1110,7 +1116,7 @@ export function IncidentesPage() {
                     <small>
                       Alertas en triage
                       {(resumen?.alertas_sla_activas ?? 0) > 0
-                        ? ` · ${resumen.alertas_sla_activas} SLA`
+                        ? ` · ${resumen.alertas_sla_activas} atrasado(s)`
                         : ''}
                     </small>
                   </span>
@@ -1193,54 +1199,6 @@ export function IncidentesPage() {
               </div>
             </div>
           </>
-        ) : (
-          <div className="inc-compact-bar no-print">
-            <div className="inc-compact-chips">
-              <button
-                type="button"
-                className="inc-compact-chip"
-                onClick={() => setVistaActiva('incidentes')}
-              >
-                🔥 <strong>{incidentesActivosLista.length}</strong> incidentes activos
-              </button>
-              {rolActivo !== 'BOMBERO' && (
-                <button
-                  type="button"
-                  className="inc-compact-chip"
-                  onClick={() => setVistaActiva('avisos')}
-                >
-                  📢 <strong>{avisosPendientes.length}</strong> alertas en triage
-                </button>
-              )}
-              <button
-                type="button"
-                className="inc-compact-chip"
-                onClick={() => navigate('/brigadas')}
-                title="Abrir módulo de Brigadas"
-              >
-                🚒 <strong>{resumen?.brigadas_disponibles ?? 0}</strong> brigadas disp. ↗
-              </button>
-              <button
-                type="button"
-                className="inc-compact-chip"
-                onClick={() => navigate('/zonas-riesgo')}
-                title="Abrir módulo de Zonas de Riesgo"
-              >
-                🌲 <strong>{resumen?.zonas_criticas ?? 0}</strong> zonas crít. ↗
-              </button>
-            </div>
-            <button
-              type="button"
-              className="btn-secondary btn-xs"
-              onClick={() => {
-                const next = !sonidoAlertaActivo;
-                setSonidoAlertaActivo(next);
-                if (next) reproducirTonoAlertaCad();
-              }}
-            >
-              {sonidoAlertaActivo ? '🔊 Sonido CAD' : '🔇 Silenciado'}
-            </button>
-          </div>
         )}
 
         {esBomberoReal &&
@@ -1501,13 +1459,14 @@ export function IncidentesPage() {
                           <article key={av.id_aviso} className="item-row compact">
                             <div className="item-main">
                               <div className="item-title">
-                                <strong>Aviso #{av.id_aviso}</strong> — {av.ubicacion}
+                                <strong>Aviso #{av.id_aviso}</strong> —{' '}
+                                {av.ubicacion_legible || av.ubicacion}
                               </div>
                               <div className="item-meta">
                                 <StatusBadge value={av.nivel_urgencia} />
                                 <StatusBadge value={av.estado_aviso} />
                                 {av.alerta_sla && (
-                                  <span className="badge badge-danger">SLA &gt;15m</span>
+                                  <span className="badge badge-danger">Atrasado (+15 min)</span>
                                 )}
                               </div>
                             </div>
@@ -1551,7 +1510,8 @@ export function IncidentesPage() {
                           >
                             <div className="item-main">
                               <div className="item-title">
-                                <strong>Incidente #{inc.id_incidente}</strong> — {inc.ubicacion}
+                                <strong>Incidente #{inc.id_incidente}</strong> —{' '}
+                                {inc.ubicacion_legible || inc.ubicacion}
                               </div>
                               <div className="item-meta">
                                 <StatusBadge value={inc.gravedad} />
@@ -1645,8 +1605,47 @@ export function IncidentesPage() {
                     <div>
                       <strong>Registro Directo de Incidente</strong>
                       <p className="subtitle">
-                        Abre un incidente operativo sin pasar por la cola de avisos ciudadanos.
+                        Marca la ubicación en el mapa o ingresa una referencia para abrir el incidente sin pasar por la cola de avisos.
                       </p>
+                    </div>
+
+                    <div className="inc-intake-map-wrap">
+                      <div className="inc-intake-map-bar">
+                        {pickedPoint ? (
+                          <span className="inc-intake-point-chip">
+                            📍 Punto marcado en el mapa
+                          </span>
+                        ) : (
+                          <span className="subtitle">
+                            Haz clic en el mapa para ubicar el incidente
+                          </span>
+                        )}
+                        {pickedPoint && (
+                          <button
+                            type="button"
+                            className="btn-secondary inc-intake-clear-btn"
+                            onClick={() => setPickedPoint(null)}
+                          >
+                            Quitar punto
+                          </button>
+                        )}
+                      </div>
+                      <TacticalMap
+                        zonas={referencias.zonas}
+                        avisos={avisos}
+                        incidentes={incidentes}
+                        pickedPoint={pickedPoint}
+                        onPickPoint={setPickedPoint}
+                        firmsData={firmsData}
+                        capaSatelitalActiva={capaSatelitalActiva}
+                        firmsSimulado={firmsSimulado}
+                        firmsDays={firmsDays}
+                        onToggleCapaSatelital={handleToggleCapaSatelital}
+                        onToggleSimulacionFirms={handleToggleSimulacionFirms}
+                        onRefrescarFirms={handleRefrescarFirms}
+                        onCambiarDiasFirms={handleCambiarDiasFirms}
+                        modoCiudadano={false}
+                      />
                     </div>
 
                     <div className="triage-intake-group">
@@ -1671,10 +1670,10 @@ export function IncidentesPage() {
                       <div className="triage-intake-grid">
                         <input
                           type="text"
-                          placeholder="Ubicación del incidente *"
+                          placeholder="Referencia / dirección (opcional si marcas en el mapa)"
                           value={ubicacion}
                           onChange={(e) => setUbicacion(e.target.value)}
-                          required
+                          required={!pickedPoint}
                         />
                         <select value={idZona} onChange={(e) => setIdZona(e.target.value)}>
                           <option value="">Auto-detectar zona por coord.</option>
@@ -1701,7 +1700,10 @@ export function IncidentesPage() {
                       </div>
 
                       <div className="item-actions">
-                        <button type="submit" disabled={loading}>
+                        <button
+                          type="submit"
+                          disabled={loading || (!ubicacion.trim() && !pickedPoint)}
+                        >
                           Crear Incidente
                         </button>
                         <button
@@ -1808,7 +1810,8 @@ export function IncidentesPage() {
                       >
                         <div className="item-main">
                           <div className="item-title">
-                            <strong>#{inc.id_incidente}</strong> — {inc.ubicacion}
+                            <strong>#{inc.id_incidente}</strong> —{' '}
+                            {inc.ubicacion_legible || inc.ubicacion}
                           </div>
                           <div className="item-meta">
                             <StatusBadge value={inc.gravedad} />
@@ -1886,7 +1889,7 @@ export function IncidentesPage() {
                   <option value="">-- Selecciona un incidente --</option>
                   {incidentes.map((inc) => (
                     <option key={inc.id_incidente} value={inc.id_incidente}>
-                      #{inc.id_incidente} — {inc.ubicacion} [{inc.estado} / {inc.gravedad}]
+                      #{inc.id_incidente} — {inc.ubicacion_legible || inc.ubicacion} [{inc.estado} / {inc.gravedad}]
                     </option>
                   ))}
                 </select>

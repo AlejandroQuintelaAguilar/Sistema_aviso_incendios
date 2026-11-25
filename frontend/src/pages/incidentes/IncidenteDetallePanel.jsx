@@ -211,7 +211,7 @@ export function IncidenteDetallePanel({
               <article key={inc.id_incidente} className="inc-quick-pick-card">
                 <div className="inc-quick-pick-head">
                   <strong>
-                    #{inc.id_incidente} — {inc.ubicacion}
+                    #{inc.id_incidente} — {inc.ubicacion_legible || inc.ubicacion}
                   </strong>
                 </div>
                 <div className="item-meta">
@@ -547,7 +547,7 @@ export function IncidenteDetallePanel({
       <div className="card-header">
         <div>
           <h2>Incidente #{incidente.id_incidente}</h2>
-          <p className="subtitle">{incidente.ubicacion}</p>
+          <p className="subtitle">{incidente.ubicacion_legible || incidente.ubicacion}</p>
         </div>
         <div className="item-actions">
           <StatusBadge value={incidente.gravedad} />

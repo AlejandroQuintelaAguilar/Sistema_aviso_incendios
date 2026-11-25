@@ -11,11 +11,17 @@ import {
   construirFocoDetalle,
   escapeHtml,
   generarPerimetroPoligono,
+  limpiarUbicacionCiudadano,
   tooltipHtmlFoco,
 } from '../../utils/tacticalMapHelpers';
 
 const DEFAULT_CENTER = [-17.36, -66.16];
 const DEFAULT_ZOOM = 10;
+
+const BOLIVIA_MAX_BOUNDS = [
+  [-23.6, -70.6],
+  [-9.0, -56.6],
+];
 
 const BOLIVIA_SECTOR = {
   id: 'bolivia',
@@ -142,6 +148,9 @@ export function TacticalMap({
     const map = L.map(containerRef.current, {
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
+      minZoom: 6,
+      maxBounds: BOLIVIA_MAX_BOUNDS,
+      maxBoundsViscosity: 0.9,
       zoomControl: true,
     });
 
@@ -623,9 +632,13 @@ export function TacticalMap({
         })
           .bindTooltip(
             tooltipHtmlFoco({
-              titulo: `Aviso #${a.id_aviso}`,
-              ubicacion: a.ubicacion,
-              estado: `${a.estado_aviso} · ${a.nivel_urgencia}`,
+              titulo: modoCiudadano ? `Tu reporte #${a.id_aviso}` : `Aviso #${a.id_aviso}`,
+              ubicacion: modoCiudadano
+                ? limpiarUbicacionCiudadano(a.ubicacion_legible || a.ubicacion)
+                : a.ubicacion_legible || a.ubicacion,
+              estado: modoCiudadano
+                ? a.estado_aviso
+                : `${a.estado_aviso} · ${a.nivel_urgencia}`,
               actualizadoIso: a.created_at || a.fecha_hora,
             }),
             { direction: 'top', offset: [0, -14], opacity: 0.96, className: 'tactical-tooltip' }
@@ -690,7 +703,7 @@ export function TacticalMap({
         .bindTooltip(
           tooltipHtmlFoco({
             titulo: `Incidente #${inc.id_incidente}`,
-            ubicacion: inc.ubicacion,
+            ubicacion: inc.ubicacion_legible || inc.ubicacion,
             estado: `${inc.estado} · ${inc.gravedad}`,
             actualizadoIso: inc.updated_at || inc.fecha_inicio || inc.created_at,
           }),
@@ -715,10 +728,15 @@ export function TacticalMap({
       });
       L.marker([pickedPoint.lat, pickedPoint.lng], { icon: pinIcon, zIndexOffset: 500 })
         .bindTooltip(
-          `<div class="tac-tt-inner">
-            <div class="tac-tt-title">Coordenada GPS / Pin</div>
-            <div class="tac-tt-loc">${pickedPoint.lat}, ${pickedPoint.lng}</div>
-          </div>`,
+          modoCiudadano
+            ? `<div class="tac-tt-inner">
+                <div class="tac-tt-title">Ubicación marcada</div>
+                <div class="tac-tt-loc">Punto seleccionado para tu reporte</div>
+              </div>`
+            : `<div class="tac-tt-inner">
+                <div class="tac-tt-title">Coordenada GPS / Pin</div>
+                <div class="tac-tt-loc">${pickedPoint.lat}, ${pickedPoint.lng}</div>
+              </div>`,
           { direction: 'top', offset: [0, -14], opacity: 0.96, className: 'tactical-tooltip' }
         )
         .addTo(group);
@@ -961,7 +979,9 @@ export function TacticalMap({
               className="btn-secondary"
               onClick={() => onPickPoint?.(null)}
             >
-              Limpiar pin ({pickedPoint.lat}, {pickedPoint.lng})
+              {modoCiudadano
+                ? 'Quitar marcador'
+                : `Limpiar pin (${pickedPoint.lat}, ${pickedPoint.lng})`}
             </button>
           )}
         </div>
@@ -1257,7 +1277,11 @@ export function TacticalMap({
             )}
           </div>
           <div className="hud-coords">
-            {cursorCoords
+            {modoCiudadano
+              ? pickedPoint
+                ? 'Ubicación marcada en el mapa'
+                : 'Toca el mapa para marcar el lugar'
+              : cursorCoords
               ? `Cursor: ${cursorCoords.lat.toFixed(4)}, ${cursorCoords.lng.toFixed(4)}`
               : pickedPoint
               ? `Pin activo: ${pickedPoint.lat}, ${pickedPoint.lng}`

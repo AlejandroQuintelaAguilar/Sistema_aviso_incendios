@@ -987,6 +987,78 @@ class IncidentesModuleTestCase(unittest.TestCase):
         self.assertEqual(resumen["zonas_con_alerta_coe"], 1)
         self.assertGreaterEqual(resumen["zonas_criticas"], 2)
 
+    def test_reverse_geocode_nominatim_y_ubicacion_legible(self) -> None:
+        from app.utils import geo_utils
+
+        geo_utils.limpiar_cache_reverse_geocode()
+        mock_payload = {
+            "address": {
+                "road": "Avenida América",
+                "neighbourhood": "Cala Cala",
+                "city": "Cochabamba",
+                "state": "Cochabamba",
+            }
+        }
+
+        with patch.object(
+            geo_utils, "_consultar_nominatim_json", return_value=mock_payload
+        ) as mock_nom:
+            dir_resuelta = geo_utils.reverse_geocode_ubicacion(
+                -17.3720, -66.1560, allow_in_testing=True
+            )
+            self.assertEqual(dir_resuelta, "Avenida América, Cala Cala, Cochabamba")
+            # Segunda consulta cercana debe salir de caché sin volver a consultar HTTP
+            dir_cache = geo_utils.reverse_geocode_ubicacion(
+                -17.3721, -66.1561, allow_in_testing=True
+            )
+            self.assertEqual(dir_cache, "Avenida América, Cala Cala, Cochabamba")
+            self.assertEqual(mock_nom.call_count, 1)
+
+        with patch(
+            "app.services.aviso_service.reverse_geocode_ubicacion",
+            return_value="Avenida América, Cala Cala, Cochabamba",
+        ):
+            resp_av = self.client.post(
+                "/api/avisos",
+                json={"lat": -17.3720, "lng": -66.1560, "nivel_urgencia": "ALTO"},
+            )
+            self.assertEqual(resp_av.status_code, 201)
+            av = resp_av.get_json()["data"]
+            self.assertIn("Avenida América, Cala Cala, Cochabamba", av["ubicacion"])
+            self.assertIn("Coord: -17.3720, -66.1560", av["ubicacion"])
+            self.assertIn("Avenida América, Cala Cala, Cochabamba", av["ubicacion_legible"])
+            self.assertNotIn("Coord:", av["ubicacion_legible"])
+
+            # Al convertir a incidente pasando solo la ubicación legible, mantiene coordenadas
+            resp_inc = self.client.post(
+                "/api/incidentes",
+                json={
+                    "id_aviso": av["id_aviso"],
+                    "ubicacion": av["ubicacion_legible"],
+                    "gravedad": "ALTA",
+                },
+            )
+            self.assertEqual(resp_inc.status_code, 201)
+            inc = resp_inc.get_json()["data"]
+            self.assertEqual(inc["coordenadas"]["lat"], -17.372)
+            self.assertEqual(inc["ubicacion_legible"], av["ubicacion_legible"])
+
+    def test_crear_incidente_directo_solo_con_coordenadas_del_mapa(self) -> None:
+        with patch(
+            "app.services.incidente_service.reverse_geocode_ubicacion",
+            return_value="Avenida Heroínas, Centro, Cochabamba",
+        ):
+            resp = self.client.post(
+                "/api/incidentes",
+                json={"lat": -17.3935, "lng": -66.1570, "gravedad": "ALTA"},
+            )
+            self.assertEqual(resp.status_code, 201)
+            inc = resp.get_json()["data"]
+            self.assertEqual(inc["coordenadas"], {"lat": -17.3935, "lng": -66.157})
+            self.assertIn("Avenida Heroínas, Centro, Cochabamba", inc["ubicacion_legible"])
+            self.assertNotIn("Coord:", inc["ubicacion_legible"])
+            self.assertIn("Coord: -17.3935, -66.1570", inc["ubicacion"])
+
 
 if __name__ == "__main__":
     unittest.main()

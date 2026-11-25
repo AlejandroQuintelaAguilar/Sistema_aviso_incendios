@@ -1,13 +1,29 @@
-"""Utilidades geográficas para extracción de coordenadas y cálculo de distancias."""
+"""Utilidades geográficas para extracción de coordenadas, geocodificación inversa y distancias."""
 
+import json
 import math
 import re
 import unicodedata
+import urllib.error
+import urllib.request
 from typing import Any
+
+from flask import current_app, has_app_context
 
 from app.middleware.error_handler import ValidationError
 
 _COORD_PATTERN = re.compile(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)")
+_COORD_SUFFIX_PATTERN = re.compile(
+    r"\s*\(\s*(?:Coord|GPS)?\s*:?\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)",
+    re.IGNORECASE,
+)
+_COORD_INLINE_PATTERN = re.compile(
+    r"\b(?:Coord|GPS)\s*:\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?",
+    re.IGNORECASE,
+)
+
+# Caché en memoria por coordenada redondeada a ~110 m (3 decimales)
+_REVERSE_GEO_CACHE: dict[tuple[float, float], str | None] = {}
 
 # Coordenadas de referencia para sectores semilla cuando el texto no trae lat, lng
 _SECTOR_COORDS: tuple[tuple[str, dict[str, float]], ...] = (
@@ -34,7 +50,8 @@ def _normalize_text(text: str) -> str:
     return ascii_text.lower()
 
 
-def _extract_explicit_coordinates(text: str | None) -> dict[str, float] | None:
+def extract_explicit_coordinates(text: str | None) -> dict[str, float] | None:
+    """Extrae únicamente pares lat/lng explícitos presentes en el texto."""
     if not text or not isinstance(text, str):
         return None
     for match in _COORD_PATTERN.finditer(text):
@@ -47,6 +64,10 @@ def _extract_explicit_coordinates(text: str | None) -> dict[str, float] | None:
             if "." in match.group(1) or "." in match.group(2):
                 return {"lat": lat_f, "lng": lng_f}
     return None
+
+
+def _extract_explicit_coordinates(text: str | None) -> dict[str, float] | None:
+    return extract_explicit_coordinates(text)
 
 
 def validate_coordinates(lat: Any, lng: Any) -> tuple[float, float]:
@@ -120,3 +141,125 @@ def estimar_eta_min(
     if distancia_km <= 0 or velocidad_kmh <= 0:
         return max(3, alistamiento_min)
     return max(3, round((distancia_km / velocidad_kmh) * 60 + alistamiento_min))
+
+
+def limpiar_cache_reverse_geocode() -> None:
+    """Limpia la caché en memoria de geocodificación inversa."""
+    _REVERSE_GEO_CACHE.clear()
+
+
+def strip_coordinates_label(ubicacion: str | None) -> str:
+    """Devuelve el texto de ubicación sin el sufijo técnico (Coord: lat, lng)."""
+    if not ubicacion or not isinstance(ubicacion, str):
+        return ""
+    limpio = _COORD_SUFFIX_PATTERN.sub("", ubicacion)
+    limpio = _COORD_INLINE_PATTERN.sub("", limpio)
+    limpio = re.sub(r"\s*[—–-]\s*$", "", limpio)
+    limpio = re.sub(r"\s{2,}", " ", limpio).strip()
+    return limpio or ubicacion.strip()
+
+
+def _first_present(address: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        val = address.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
+def _consultar_nominatim_json(
+    lat: float, lng: float, timeout_sec: float = 2.5
+) -> dict[str, Any] | None:
+    url = (
+        "https://nominatim.openstreetmap.org/reverse"
+        f"?format=jsonv2&lat={lat:.5f}&lon={lng:.5f}&zoom=17&addressdetails=1&accept-language=es"
+    )
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "VigiaTerritorial-CAD/1.0 (emergencias-bolivia)"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+    data = json.loads(raw)
+    return data if isinstance(data, dict) else None
+
+
+def _formatear_direccion_nominatim(payload: dict[str, Any] | None) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    address = payload.get("address")
+    partes: list[str] = []
+    vistas: set[str] = set()
+
+    if isinstance(address, dict):
+        via = _first_present(
+            address,
+            (
+                "road",
+                "pedestrian",
+                "residential",
+                "footway",
+                "path",
+                "hamlet",
+                "isolated_dwelling",
+            ),
+        )
+        zona = _first_present(
+            address,
+            (
+                "neighbourhood",
+                "suburb",
+                "quarter",
+                "city_district",
+                "village",
+                "town",
+            ),
+        )
+        ciudad = _first_present(address, ("city", "municipality", "county", "state"))
+        candidatos = [via, zona, ciudad]
+        if not via and not zona and isinstance(address.get("state"), str):
+            candidatos.append(address.get("state"))
+
+        for cand in candidatos:
+            if not cand:
+                continue
+            norm = _normalize_text(cand.strip())
+            if norm and norm not in vistas:
+                vistas.add(norm)
+                partes.append(cand.strip())
+
+    if partes:
+        return ", ".join(partes)
+
+    display_name = payload.get("display_name")
+    if isinstance(display_name, str) and display_name.strip():
+        segs = [s.strip() for s in display_name.split(",") if s.strip()]
+        if segs:
+            return ", ".join(segs[:3])
+    return None
+
+
+def reverse_geocode_ubicacion(
+    lat: float,
+    lng: float,
+    timeout_sec: float = 2.5,
+    allow_in_testing: bool = False,
+) -> str | None:
+    """Convierte lat/lng a calle, barrio y municipio usando OpenStreetMap Nominatim con caché."""
+    if not allow_in_testing and has_app_context() and current_app.config.get("TESTING"):
+        return None
+
+    cache_key = (round(float(lat), 3), round(float(lng), 3))
+    if cache_key in _REVERSE_GEO_CACHE:
+        return _REVERSE_GEO_CACHE[cache_key]
+
+    direccion: str | None = None
+    try:
+        payload = _consultar_nominatim_json(float(lat), float(lng), timeout_sec=timeout_sec)
+        direccion = _formatear_direccion_nominatim(payload)
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        direccion = None
+
+    _REVERSE_GEO_CACHE[cache_key] = direccion
+    return direccion

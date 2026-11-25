@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { limpiarUbicacionCiudadano } from '../../utils/tacticalMapHelpers';
 
 function claseBadgeEstado(estado) {
   const val = String(estado || '').toUpperCase();
@@ -68,7 +69,7 @@ export function TacticalDrawer({
               Alerta: {cabecera.nivelAlerta}
             </span>
             {cabecera.alertaSla && (
-              <span className="tac-pill is-danger">SLA &gt;15m</span>
+              <span className="tac-pill is-danger">Atrasado (+15 min)</span>
             )}
           </div>
 
@@ -85,10 +86,15 @@ export function TacticalDrawer({
 
         <div className="tac-drawer-title-block">
           <h3>{cabecera.titulo}</h3>
-          <p className="tac-drawer-location">📍 {cabecera.ubicacion}</p>
+          <p className="tac-drawer-location">
+            📍{' '}
+            {modoCiudadano
+              ? limpiarUbicacionCiudadano(cabecera.ubicacion)
+              : cabecera.ubicacion}
+          </p>
           <div className="tac-drawer-submeta">
             <span>{cabecera.subtitulo}</span>
-            {cabecera.lat != null && cabecera.lng != null && (
+            {!modoCiudadano && cabecera.lat != null && cabecera.lng != null && (
               <code>
                 {Number(cabecera.lat).toFixed(4)}, {Number(cabecera.lng).toFixed(4)}
               </code>
@@ -118,7 +124,8 @@ export function TacticalDrawer({
           )}
         </div>
 
-        {/* 2. Métricas clave en tarjetas */}
+        {/* 2. Métricas clave en tarjetas (solo personal operativo) */}
+        {!modoCiudadano && (
         <section className="tac-drawer-section">
           <h4 className="tac-drawer-sec-title">Métricas clave del foco</h4>
           <div className="tac-metrics-grid">
@@ -156,6 +163,7 @@ export function TacticalDrawer({
             </div>
           </div>
         </section>
+        )}
 
         {/* 3. Línea de tiempo / Historial y Fuente */}
         <section className="tac-drawer-section">
@@ -189,7 +197,7 @@ export function TacticalDrawer({
               className="tac-drawer-btn"
               onClick={() => onEnfocarCoords?.({ lat: cabecera.lat, lng: cabecera.lng })}
             >
-              🎯 Enfocar perímetro
+              {modoCiudadano ? '📍 Centrar en el mapa' : '🎯 Enfocar perímetro'}
             </button>
           )}
 

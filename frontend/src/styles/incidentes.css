@@ -1601,6 +1601,17 @@
   border-top: 1px solid #e2e8f0;
 }
 
+.citizen-other-loc-input {
+  width: 100%;
+}
+
+.inc-shell .citizen-other-loc-submit {
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.85rem 1.2rem;
+  font-size: 0.96rem;
+}
+
 /* ===== Adaptación Vigía Territorial · Módulo Recursos y Estaciones ===== */
 .inc-titulo-bar {
   margin-bottom: 0.5rem;
@@ -4398,4 +4409,49 @@
   font-size: 0.76rem;
   color: #1e293b;
   line-height: 1.35;
+}
+
+/* ===== Mapa embebido en Registro Directo de Incidente ===== */
+.inc-intake-map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  border-radius: 16px;
+}
+
+.inc-intake-map-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inc-intake-point-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.inc-shell .inc-intake-clear-btn {
+  padding: 0.3rem 0.72rem;
+  font-size: 0.78rem;
+}
+
+.inc-intake-map-wrap .tactical-map-wrapper {
+  height: 390px;
+  min-height: 360px;
+}
+
+.inc-intake-map-wrap .firms-left-panel {
+  max-height: calc(100% - 7.5rem);
+  overflow-y: auto;
 }

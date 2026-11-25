@@ -86,6 +86,27 @@ export function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+export function limpiarUbicacionCiudadano(ubicacion) {
+  if (!ubicacion || typeof ubicacion !== 'string') {
+    return 'Ubicación enviada por GPS';
+  }
+  const sinCoords = ubicacion
+    .replace(
+      /\(\s*(?:Coord|GPS)?\s*:?\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)/gi,
+      ''
+    )
+    .replace(/(?:Coord|GPS)\s*:\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?/gi, '')
+    .replace(/-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+/g, '')
+    .replace(/[—–-]\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!sinCoords || /^reporte gps ciudadano$/i.test(sinCoords)) {
+    return 'Ubicación enviada por GPS';
+  }
+  return sinCoords;
+}
+
 export function haversineKm(a, b) {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
@@ -585,7 +606,7 @@ export function construirFocoDetalle({
     historial.push({
       hora: 'Reciente',
       titulo: `Detección activa en ${zonaNombre}`,
-      detalle: raw.ubicacion || 'Coordenada georreferenciada',
+      detalle: raw.ubicacion_legible || raw.ubicacion || 'Coordenada georreferenciada',
       fuente: fuentePrincipal,
     });
   }
@@ -600,7 +621,7 @@ export function construirFocoDetalle({
       subtitulo: zonaNombre,
       estado,
       nivelAlerta,
-      ubicacion: raw.ubicacion || zonaNombre,
+      ubicacion: raw.ubicacion_legible || raw.ubicacion || zonaNombre,
       lat: coords?.lat,
       lng: coords?.lng,
       alertaSla: Boolean(raw.alerta_sla),

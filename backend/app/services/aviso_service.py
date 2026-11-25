@@ -18,6 +18,7 @@ from app.utils.geo_utils import (
     extract_coordinates,
     format_ubicacion_con_coordenadas,
     haversine_km,
+    reverse_geocode_ubicacion,
     validate_coordinates,
 )
 from app.utils.validators import (
@@ -67,9 +68,18 @@ class AvisoService:
             ubicacion_base = raw_ubicacion.strip()
         elif lat is not None and lng is not None:
             lat_f, lng_f = validate_coordinates(lat, lng)
+            direccion_real = reverse_geocode_ubicacion(lat_f, lng_f)
             sugerida = self._referencias.sugerir_zona_cercana(lat_f, lng_f)
-            if sugerida is not None and sugerida["distancia_km"] <= 25.0:
-                ubicacion_base = f"Reporte GPS Ciudadano — sector {sugerida['nombre']}"
+
+            if direccion_real and sugerida is not None and sugerida["distancia_km"] <= 10.0:
+                if sugerida["nombre"].lower() in direccion_real.lower():
+                    ubicacion_base = direccion_real
+                else:
+                    ubicacion_base = f"{direccion_real} — {sugerida['nombre']}"
+            elif direccion_real:
+                ubicacion_base = direccion_real
+            elif sugerida is not None and sugerida["distancia_km"] <= 25.0:
+                ubicacion_base = f"Sector {sugerida['nombre']}"
             else:
                 ubicacion_base = "Reporte GPS Ciudadano"
         else:

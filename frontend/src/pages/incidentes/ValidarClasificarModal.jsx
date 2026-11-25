@@ -138,7 +138,7 @@ export function ValidarClasificarModal({
         (z) => z.distanciaKm != null && z.distanciaKm <= 25
       );
       setIdZona(masCercana ? String(masCercana.id_zona) : '');
-      setUbicacion(av.ubicacion || '');
+      setUbicacion(av.ubicacion_legible || av.ubicacion || '');
     }
   }, [objetivo, zonasConDistancia]);
 
@@ -158,6 +158,7 @@ export function ValidarClasificarModal({
       gravedad,
       id_zona: idZona ? Number(idZona) : null,
       ubicacion: ubicacion.trim(),
+      ...(coordsObjetivo ? { lat: coordsObjetivo.lat, lng: coordsObjetivo.lng } : {}),
     });
   }
 
@@ -215,7 +216,7 @@ export function ValidarClasificarModal({
                     </span>
                   )}
                   {aviso.alerta_sla && (
-                    <span className="badge badge-danger">SLA &gt;15m</span>
+                    <span className="badge badge-danger">Atrasado (+15 min)</span>
                   )}
                 </>
               )}
@@ -233,7 +234,7 @@ export function ValidarClasificarModal({
               ? `${grupo.zona_sugerida?.nombre || 'Sector GPS'} · Avisos: ${grupo.ids_avisos
                   .map((id) => `#${id}`)
                   .join(', ')}`
-              : aviso.ubicacion}
+              : aviso.ubicacion_legible || aviso.ubicacion}
           </p>
 
           {!esGrupo && aviso.descripcion && (
