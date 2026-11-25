@@ -4,6 +4,8 @@ import * as estacionesService from "../services/estacionesService";
 
 const VigiaContext = createContext(null);
 
+const ROLES_CON_ACCESO_A_RECURSOS = ["ADMINISTRADOR", "OPERADOR", "BOMBERO"];
+
 export function VigiaProvider({ children }) {
   const [busqueda, setBusqueda] = useState("");
   const [sidebarAbierto, setSidebarAbierto] = useState(false);
@@ -16,6 +18,7 @@ export function VigiaProvider({ children }) {
 
   const { usuario } = useAuth();
   const sesion = usuario?.nombre_usuario || "";
+  const puedeVerRecursos = ROLES_CON_ACCESO_A_RECURSOS.includes(usuario?.rol);
 
   const estacionSeleccionada = useMemo(
     () => estaciones.find((estacion) => estacion.id_estacion === idEstacionSeleccionada) || null,
@@ -36,13 +39,13 @@ export function VigiaProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!sesion) {
+    if (!sesion || !puedeVerRecursos) {
       setEstaciones([]);
       setCargandoEstaciones(false);
       return;
     }
     cargarEstaciones();
-  }, [sesion, cargarEstaciones]);
+  }, [sesion, puedeVerRecursos, cargarEstaciones]);
 
   function cambiarEstadoUnidad(idEstacion, idUnidad, estado) {
     setEstaciones((actuales) =>

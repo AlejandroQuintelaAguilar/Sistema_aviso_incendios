@@ -94,6 +94,10 @@ Para agregar las tablas y columnas requeridas por Zonas de Riesgo, ejecutar
 `backend/migrations/005_zonas_riesgo.sql` en la base del proyecto. Es seguro volver a ejecutarla
 si una ejecución anterior se detuvo por un error.
 
+El módulo de Alertas y Notificaciones usa `backend/migrations/006_alertas_notificaciones.sql`:
+crea `tipos_alerta`, `alertas` y `alerta_destinatarios`, carga las tres plantillas de mensaje y
+también se puede volver a ejecutar sin borrar datos.
+
 ## Ramas e iteraciones
 
 `main` ya incluye la iteración 1 (usuarios, vía PR #1) y la iteración 2

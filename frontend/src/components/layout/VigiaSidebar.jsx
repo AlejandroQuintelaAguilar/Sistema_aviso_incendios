@@ -28,6 +28,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
   const rol = usuario?.rol;
   const nombre = usuario?.persona?.nombres || usuario?.nombre_usuario || "Operador";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "V";
+  const enDashboard = pathname === "/dashboard";
   const enRecursos = pathname.startsWith("/recursos");
   const enBrigadas = pathname.startsWith("/brigadas");
   const enZonas = pathname.startsWith("/zonas-riesgo");
@@ -36,9 +37,10 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
   const enUsuarios = pathname.startsWith("/usuarios");
   const esCiudadanoVista = rol === "CIUDADANO" || rolActivo === "CIUDADANO";
   const esBomberoVista = rol === "BOMBERO" || rolActivo === "BOMBERO";
-
+  const enAlertas = pathname.startsWith("/alertas");
+  const enMisAlertas = pathname.startsWith("/mis-alertas");
   const [incidentesAbierto, setIncidentesAbierto] = useState(enIncidentes);
-
+  
   useEffect(() => {
     if (enIncidentes) {
       setIncidentesAbierto(true);
@@ -90,7 +92,7 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
         aria-label="Navegación principal"
       >
         <div className="vg-sidebar-cabecera">
-          <Link to="/recursos" className="vg-marca" onClick={() => setSidebarAbierto(false)}>
+          <Link to="/dashboard" className="vg-marca" onClick={() => setSidebarAbierto(false)}>
             <span className="vg-marca-icono"><Icono nombre="llama" tamano={22} /></span>
             <span className="vg-marca-texto">
               <strong>Vigía Territorial</strong>
@@ -110,6 +112,19 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
         <nav className="vg-nav" aria-label="Módulos del sistema">
           <p className="vg-nav-titulo">Módulos</p>
           <ul className="vg-nav-lista">
+            <li>
+              <Link
+                to="/dashboard"
+                className={`vg-nav-enlace${enDashboard ? " activo" : ""}`}
+                onClick={() => setSidebarAbierto(false)}
+                title={colapsado ? "Panel principal" : undefined}
+                aria-current={enDashboard ? "page" : undefined}
+              >
+                <span className="vg-nav-numero">0</span>
+                <Icono nombre="panelLateral" tamano={18} />
+                <span className="vg-nav-texto">Panel principal</span>
+              </Link>
+            </li>
             {OPERATIVOS.includes(rol) && (
               <li>
                 <Link
@@ -218,9 +233,41 @@ export default function VigiaSidebar({ usuario, pathname, onSalir }) {
                       })}
                     </ul>
                   )}
+
                 </>
+
               )}
             </li>
+            {(rol === "ADMINISTRADOR" || rol === "OPERADOR") && (
+              <li>
+                <Link
+                  to="/alertas"
+                  className={`vg-nav-enlace${enAlertas ? " activo" : ""}`}
+                  onClick={() => setSidebarAbierto(false)}
+                  title={colapsado ? "Alertas y Notificaciones" : undefined}
+                  aria-current={enAlertas ? "page" : undefined}
+                >
+                  <span className="vg-nav-numero">5</span>
+                  <Icono nombre="historial" tamano={18} />
+                  <span className="vg-nav-texto">Alertas y Notificaciones</span>
+                </Link>
+              </li>
+            )}
+            {rol === "CIUDADANO" && (
+              <li>
+                <Link
+                  to="/mis-alertas"
+                  className={`vg-nav-enlace${enMisAlertas ? " activo" : ""}`}
+                  onClick={() => setSidebarAbierto(false)}
+                  title={colapsado ? "Mis Alertas" : undefined}
+                  aria-current={enMisAlertas ? "page" : undefined}
+                >
+                  <span className="vg-nav-numero">3</span>
+                  <Icono nombre="campana" tamano={18} />
+                  <span className="vg-nav-texto">Mis Notificaciones</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 
